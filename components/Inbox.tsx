@@ -21,8 +21,10 @@ export default function Inbox() {
       const r = await fetch("/api/whatsapp/messages", { cache: "no-store" });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || "Could not load inbox.");
-      setConversations(Array.isArray(data.conversations) ? data.conversations : []);
-      if (!selected && data.conversations?.[0]) setSelected(data.conversations[0].chatId);
+      const next = Array.isArray(data.conversations) ? data.conversations : [];
+      setConversations(next);
+      setSelected((current) => current || next[0]?.chatId || "");
+      setError("");
     } catch (e) { setError(e instanceof Error ? e.message : "Could not load inbox."); }
     finally { setLoading(false); }
   }
@@ -34,11 +36,28 @@ export default function Inbox() {
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || "Could not load conversation.");
       setMessages(Array.isArray(data.messages) ? data.messages : []);
+      setError("");
     } catch (e) { setError(e instanceof Error ? e.message : "Could not load conversation."); }
   }
 
-  useEffect(() => { loadConversations(); const timer = window.setInterval(loadConversations, 3000); return () => window.clearInterval(timer); }, []);
-  useEffect(() => { loadMessages(selected); const timer = window.setInterval(() => loadMessages(selected), 2500); return () => window.clearInterval(timer); }, [selected]);
+  useEffect(() => {
+    loadConversations();
+    const timer = window.setInterval(loadConversations, 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!selected) { setMessages([]); return; }
+    loadMessages(selected);
+    const timer = window.setInterval(() => loadMessages(selected), 1000);
+    return () => window.clearInterval(timer);
+  }, [selected]);
+
+  useEffect(() => {
+    const handler = () => { loadConversations(); if (selected) loadMessages(selected); };
+    window.addEventListener("focus", handler);
+    return () => window.removeEventListener("focus", handler);
+  }, [selected]);
 
   async function send() {
     const body = text.trim();
@@ -59,8 +78,12 @@ export default function Inbox() {
     <section className="panel glass" style={{ padding: 0, overflow: "hidden", minHeight: 650 }}>
       <div style={{ display: "grid", gridTemplateColumns: "minmax(240px,32%) 1fr", minHeight: 650 }}>
         <div style={{ borderRight: "1px solid var(--line)", background: "rgba(7,10,15,.55)" }}>
-          <div style={{ padding: 18, borderBottom: "1px solid var(--line)" }}><div className="eyebrow">MESSAGES</div><h2 style={{ margin: "5px 0 0" }}>Inbox</h2><div className="small muted" style={{ marginTop: 5 }}>{conversations.length} conversation{conversations.length === 1 ? "" : "s"}</div></div>
-          {loading ? <div className="empty" style={{ margin: 14, minHeight: 140 }}>Loading conversations…</div> : conversations.length === 0 ? <div className="empty" style={{ margin: 14, minHeight: 180 }}><strong>No conversations yet</strong><span>Connect WhatsApp and receive a message.</span></div> : conversations.map((c) => (
+          <div style={{ padding: 18, borderBottom: "1px solid var(--line)" }}>
+            <div className="eyebrow">MESSAGES</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}><h2 style={{ margin: "5px 0 0" }}>Inbox</h2><span style={{ fontSize: 10, fontWeight: 800, letterSpacing: ".08em", color: "#22c55e" }}>● LIVE</span></div>
+            <div className="small muted" style={{ marginTop: 5 }}>{conversations.length} conversation{conversations.length === 1 ? "" : "s"} · updates automatically</div>
+          </div>
+          {loading ? <div className="empty" style={{ margin: 14, minHeight: 140 }}>Loading conversations…</div> : conversations.length === 0 ? <div className="empty" style={{ margin: 14, minHeight: 180 }}><strong>No conversations yet</strong><span>Connect WhatsApp and receive a message. Existing recent chats are imported automatically.</span></div> : conversations.map((c) => (
             <button key={c.chatId} onClick={() => setSelected(c.chatId)} style={{ width: "100%", display: "grid", gridTemplateColumns: "42px 1fr auto", gap: 10, alignItems: "center", textAlign: "left", padding: 14, border: 0, borderBottom: "1px solid var(--line)", background: selected === c.chatId ? "rgba(139,92,246,.10)" : "transparent", color: "inherit" }}>
               <div style={{ width: 42, height: 42, display: "grid", placeItems: "center", borderRadius: "50%", background: "linear-gradient(135deg,rgba(139,92,246,.28),rgba(34,211,238,.12))", fontWeight: 800 }}>{(c.name || c.phone || "?").slice(0, 1).toUpperCase()}</div>
               <div style={{ minWidth: 0 }}><strong style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name || c.phone || "Unknown"}</strong><span className="small muted" style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 3 }}>{c.lastMessage || "No message"}</span></div>
