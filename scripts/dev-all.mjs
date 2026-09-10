@@ -6,8 +6,8 @@ const children = [];
 function start(script) {
   const child = spawn(npm, ["run", script], {
     stdio: "inherit",
-    shell: true,
     windowsHide: false,
+    shell: false,
   });
   children.push(child);
   child.on("error", (error) => {
@@ -25,14 +25,6 @@ function stop() {
   }
 }
 
-process.on("SIGINT", () => {
-  stop();
-  process.exit(0);
-});
-
-process.on("SIGTERM", () => {
-  stop();
-  process.exit(0);
-});
-
+process.on("SIGINT", () => { stop(); process.exit(0); });
+process.on("SIGTERM", () => { stop(); process.exit(0); });
 process.on("exit", stop);
