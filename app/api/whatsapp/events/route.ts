@@ -6,7 +6,10 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 const workerUrl = process.env.WHATSAPP_WORKER_URL || "http://127.0.0.1:3010";
-const workerHeaders = process.env.WHATSAPP_WORKER_SECRET ? { Authorization: `Bearer ${process.env.WHATSAPP_WORKER_SECRET}` } : {};
+const workerHeaders = new Headers();
+if (process.env.WHATSAPP_WORKER_SECRET) {
+  workerHeaders.set("Authorization", `Bearer ${process.env.WHATSAPP_WORKER_SECRET}`);
+}
 
 export async function GET() {
   const store = await cookies();
