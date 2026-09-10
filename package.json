@@ -18,7 +18,7 @@
     "qrcode-terminal": "latest",
     "react": "19.2.0",
     "react-dom": "19.2.0",
-    "whatsapp-web.js": "latest"
+    "whatsapp-web.js": "1.34.7"
   },
   "devDependencies": {
     "@types/node": "latest",
