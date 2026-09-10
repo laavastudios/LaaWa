@@ -13,6 +13,7 @@
     "@google/genai": "latest",
     "lucide-react": "latest",
     "next": "16.3.4",
+    "qrcode": "latest",
     "qrcode-terminal": "latest",
     "react": "19.2.0",
     "react-dom": "19.2.0",
@@ -20,6 +21,7 @@
   },
   "devDependencies": {
     "@types/node": "latest",
+    "@types/qrcode": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "eslint": "latest",
