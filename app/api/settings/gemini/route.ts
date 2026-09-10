@@ -2,7 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { verifySession } from "../../auth/login/route";
-import { decryptSecret, encryptSecret, GEMINI_COOKIE } from "../../../lib/secret-store";
+import { decryptSecret, encryptSecret, GEMINI_COOKIE } from "@/lib/secret-store";
 
 function authorized(store: Awaited<ReturnType<typeof cookies>>) {
   return verifySession(store.get("laawa_session")?.value);
