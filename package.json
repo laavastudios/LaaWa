@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "whatsapp": "node worker/whatsapp.mjs"
+    "whatsapp": "node worker/whatsapp.mjs",
+    "laawa": "node scripts/dev-all.mjs"
   },
   "dependencies": {
     "@google/genai": "latest",
