@@ -6,14 +6,17 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "whatsapp": "node worker/whatsapp.mjs"
   },
   "dependencies": {
     "@google/genai": "latest",
     "lucide-react": "latest",
     "next": "16.3.4",
+    "qrcode-terminal": "latest",
     "react": "19.2.0",
-    "react-dom": "19.2.0"
+    "react-dom": "19.2.0",
+    "whatsapp-web.js": "latest"
   },
   "devDependencies": {
     "@types/node": "latest",
