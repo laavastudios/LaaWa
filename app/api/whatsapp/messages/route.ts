@@ -3,7 +3,10 @@ import { cookies } from "next/headers";
 import { verifySession } from "../../auth/login/route";
 
 const workerUrl = process.env.WHATSAPP_WORKER_URL || "http://127.0.0.1:3010";
-const workerHeaders = () => process.env.WHATSAPP_WORKER_SECRET ? { Authorization: `Bearer ${process.env.WHATSAPP_WORKER_SECRET}` } : {};
+const workerHeaders = (): Record<string, string> => {
+  const secret = process.env.WHATSAPP_WORKER_SECRET;
+  return secret ? { Authorization: `Bearer ${secret}` } : {};
+};
 
 export async function GET(request: Request) {
   const store = await cookies();
