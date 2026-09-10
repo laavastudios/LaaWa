@@ -7,6 +7,16 @@ type Message = { id: string; chatId: string; body: string; timestamp: number; fr
 
 function time(ts: number) { return ts ? new Date(ts * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ""; }
 function day(ts: number) { return ts ? new Date(ts * 1000).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" }) : ""; }
+function isChannel(id: string) { return id.includes("@lid"); }
+function displayName(c?: Conversation | Message, fallback = "Unknown") {
+  if (!c) return fallback;
+  if (isChannel(c.chatId)) return c.name && !c.name.includes("@lid") ? c.name : "WhatsApp Channel";
+  return c.name && !c.name.includes("@c.us") && !c.name.includes("@lid") ? c.name : c.phone || fallback;
+}
+function displayPhone(c?: Conversation | Message) {
+  if (!c || isChannel(c.chatId)) return "";
+  return c.phone ? `+${c.phone.replace(/^\+/, "")}` : "";
+}
 
 export default function Inbox() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -53,14 +63,8 @@ export default function Inbox() {
     source.addEventListener("open", () => setLive(true));
     source.addEventListener("state", () => loadConversations());
     source.addEventListener("snapshot", () => loadConversations());
-    source.addEventListener("message", () => {
-      loadConversations();
-      if (selectedRef.current) loadMessages(selectedRef.current, true);
-    });
-    source.addEventListener("sync", () => {
-      loadConversations();
-      if (selectedRef.current) loadMessages(selectedRef.current, false);
-    });
+    source.addEventListener("message", () => { loadConversations(); if (selectedRef.current) loadMessages(selectedRef.current, true); });
+    source.addEventListener("sync", () => { loadConversations(); if (selectedRef.current) loadMessages(selectedRef.current, false); });
     source.onerror = () => setLive(false);
     return () => source.close();
   }, []);
@@ -92,52 +96,43 @@ export default function Inbox() {
   }
 
   const selectedConversation = useMemo(() => conversations.find((c) => c.chatId === selected), [conversations, selected]);
-  const initials = (selectedConversation?.name || selectedConversation?.phone || "?").slice(0, 2).toUpperCase();
+  const channel = isChannel(selected);
+  const title = displayName(selectedConversation, channel ? "WhatsApp Channel" : "Select a conversation");
+  const initials = channel ? "WA" : title.slice(0, 2).toUpperCase();
 
   return (
-    <section className="panel glass inbox-shell">
-      <div className="inbox-grid">
+    <section className="inbox-shell glass">
+      <div className="inbox-layout">
         <aside className="inbox-list">
           <div className="inbox-list-head">
             <div><div className="eyebrow">MESSAGING CENTER</div><h2>Inbox</h2><p>{conversations.length} active conversation{conversations.length === 1 ? "" : "s"}</p></div>
             <span className={`live-pill ${live ? "on" : ""}`}><i />{live ? "LIVE" : "RECONNECTING"}</span>
           </div>
-          <div className="inbox-conversations">
-            {loading ? <div className="empty inbox-empty">Loading conversations…</div> : conversations.length === 0 ? <div className="empty inbox-empty"><strong>No conversations yet</strong><span>Connect WhatsApp and receive a message. Recent chats import automatically.</span></div> : conversations.map((c) => (
-              <button key={c.chatId} className={`conversation ${selected === c.chatId ? "selected" : ""}`} onClick={() => setSelected(c.chatId)}>
-                <div className="avatar">{(c.name || c.phone || "?").slice(0, 1).toUpperCase()}</div>
-                <div className="conversation-main"><strong>{c.name || c.phone || "Unknown"}</strong><span>{c.lastMessage || "No message"}</span></div>
-                <div className="conversation-meta"><small>{time(c.timestamp)}</small>{c.unread > 0 && <b>{c.unread}</b>}</div>
-              </button>
-            ))}
+          <div className="conversation-scroll">
+            {loading ? <div className="inbox-empty"><div className="spinner" /><span>Loading conversations…</span></div> : conversations.length === 0 ? <div className="inbox-empty"><strong>No conversations yet</strong><span>Connect WhatsApp and receive a message. Chats are imported automatically.</span></div> : conversations.map((c) => {
+              const selectedRow = selected === c.chatId;
+              const cChannel = isChannel(c.chatId);
+              return <button key={c.chatId} className={`conversation-row ${selectedRow ? "selected" : ""}`} onClick={() => setSelected(c.chatId)}><div className="avatar">{cChannel ? "WA" : displayName(c, "?").slice(0, 2).toUpperCase()}</div><div className="conversation-copy"><strong>{displayName(c)}</strong><span>{c.lastMessage || "No message"}</span></div><div className="conversation-meta"><time>{time(c.timestamp)}</time>{c.unread > 0 && <b>{c.unread}</b>}</div></button>;
+            })}
           </div>
         </aside>
 
-        <div className="inbox-chat">
+        <div className="chat-pane">
           <header className="chat-head">
-            <div className="chat-person">
-              <div className="avatar large">{initials}</div>
-              <div><div className="eyebrow">CONVERSATION</div><h2>{selectedConversation?.name || selectedConversation?.phone || "Select a conversation"}</h2>{selectedConversation?.phone && <p>+{selectedConversation.phone}</p>}</div>
-            </div>
-            {selectedConversation && <div className="chat-live"><span /> WhatsApp live</div>}
+            <div className="avatar avatar-large">{selected ? initials : "WA"}</div>
+            <div className="chat-identity"><div className="eyebrow">{channel ? "CHANNEL" : "CONVERSATION"}</div><h2>{title}</h2><span>{displayPhone(selectedConversation) || (selected ? "Connected through WhatsApp Web" : "Select a conversation")}</span></div>
+            {selected && <div className="chat-live"><i /> WhatsApp live</div>}
           </header>
 
-          <div className="message-area">
-            {!selected ? <div className="empty chat-empty"><strong>Live inbox is ready</strong><span>Choose a conversation. New WhatsApp messages will appear here instantly.</span></div> : messages.length === 0 ? <div className="empty chat-empty"><strong>No messages yet</strong><span>Waiting for the first message in this conversation.</span></div> : messages.map((m, i) => (
-              <div key={m.id} className={`message-row ${m.fromMe ? "outgoing" : "incoming"}`} style={{ marginTop: i && day(m.timestamp) !== day(messages[i - 1].timestamp) ? 16 : 0 }}>
-                <div className="message-bubble"><div>{m.body || "[media/message]"}</div><small>{time(m.timestamp)} {m.fromMe ? "✓✓" : ""}</small></div>
-              </div>
-            ))}
+          <div className="message-scroll">
+            {!selected ? <div className="inbox-empty center"><strong>Your live inbox</strong><span>Select a conversation to view messages. Incoming WhatsApp messages appear automatically.</span></div> : messages.length === 0 ? <div className="inbox-empty center"><strong>No messages yet</strong><span>Waiting for the first message in this conversation.</span></div> : messages.map((m, i) => <div key={m.id} className="message-wrap">{i > 0 && day(m.timestamp) !== day(messages[i - 1].timestamp) && <div className="day-divider"><span>{day(m.timestamp)}</span></div>}<div className={`message-row ${m.fromMe ? "mine" : "theirs"}`}><div className="message-bubble"><div className="message-body">{m.body || "[media/message]"}</div><div className="message-time">{time(m.timestamp)} {m.fromMe ? "✓✓" : ""}</div></div></div></div>)}
             <div ref={bottomRef} />
           </div>
 
-          <div className="composer">
-            {error && <div className="error composer-error">{error}</div>}
-            <div className="composer-row">
-              <input className="setting-input" value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }} placeholder={selected ? "Write a WhatsApp message…" : "Select a conversation first"} disabled={!selected || sending} />
-              <button className="primary compact send-button" onClick={send} disabled={!selected || !text.trim() || sending}>{sending ? "Sending…" : "Send"}</button>
-            </div>
-            <div className="composer-meta">{live ? "Live stream connected" : "Waiting for live stream"} · Enter to send</div>
+          <div className="composer-wrap">
+            {error && <div className="inbox-error">{error}</div>}
+            <div className="composer"><input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }} placeholder={selected ? "Write a WhatsApp message…" : "Select a conversation first"} disabled={!selected || sending} /><button onClick={send} disabled={!selected || !text.trim() || sending}>{sending ? "Sending…" : "Send"}</button></div>
+            <div className="composer-hint"><span>{live ? "Live stream connected" : "Reconnecting to live stream…"}</span><span>Enter to send</span></div>
           </div>
         </div>
       </div>
