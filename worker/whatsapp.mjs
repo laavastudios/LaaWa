@@ -4,12 +4,13 @@ import path from "node:path";
 import qrcode from "qrcode-terminal";
 import pkg from "whatsapp-web.js";
 
-const { Client, LocalAuth } = pkg;
+const { Client, LocalAuth, MessageMedia } = pkg;
 const PORT = Number(process.env.WHATSAPP_WORKER_PORT || process.env.PORT || 3010);
 const HOST = process.env.WHATSAPP_WORKER_HOST || "127.0.0.1";
 const SECRET = process.env.WHATSAPP_WORKER_SECRET || "";
 const AUTH_PATH = process.env.WHATSAPP_AUTH_PATH || "./.whatsapp-session";
 const MESSAGE_FILE = path.join(path.resolve(AUTH_PATH), "messages.json");
+const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 
 let state = { status: "starting", connected: false, qr: null, pairingCode: null, phone: null, name: null, error: null };
 let messages = loadMessages();
@@ -22,38 +23,62 @@ function authorized(req) { return !SECRET || req.headers.authorization === `Bear
 function writeJson(res, status, body) { res.writeHead(status, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" }); res.end(JSON.stringify(body)); }
 function cleanPhone(value) { return String(value || "").replace(/\D/g, ""); }
 function emit(type, payload = {}) { const packet = `event: ${type}\ndata: ${JSON.stringify(payload)}\n\n`; for (const res of subscribers) { try { res.write(packet); } catch { subscribers.delete(res); } } }
-function upsertMessage(record, announce = true) {
-  if (!record.id || !record.chatId) return null;
-  const index = messages.findIndex((item) => item.id === record.id);
-  if (index >= 0) messages[index] = { ...messages[index], ...record };
-  else messages.push(record);
-  messages.sort((a, b) => a.timestamp - b.timestamp);
-  saveMessages();
-  const saved = messages[index >= 0 ? index : messages.length - 1];
-  if (announce) emit("message", { message: saved });
-  return saved;
+
+async function contactMeta(chatId, fallback = {}) {
+  const meta = { ...fallback, chatId };
+  try {
+    if (!chatId || chatId.includes("@newsletter") || chatId.includes("@broadcast")) return meta;
+    const contact = await client.getContactById(chatId);
+    if (contact) {
+      meta.name = contact.pushname || contact.name || contact.shortName || meta.name || "Unknown";
+      meta.phone = cleanPhone(contact.number || contact.id?.user || meta.phone || chatId);
+      try { meta.avatar = await contact.getProfilePicUrl(); } catch {}
+      meta.isBusiness = Boolean(contact.isBusiness);
+    }
+  } catch {}
+  return meta;
 }
 
 async function captureMessage(message, chatMeta = null, announce = true) {
   try {
-    // Avoid message.getChat(): WhatsApp Web can invalidate Puppeteer's execution
-    // context during message events. IDs and display names are available directly.
     const rawChatId = chatMeta?.id?._serialized || (message.fromMe ? message.to : message.from);
     const chatId = String(rawChatId || "").trim();
     if (!chatId || chatId === "status@broadcast") return null;
-    const phone = chatMeta?.id?.user || message?._data?.from || message?._data?.to || cleanPhone(chatId);
-    const name = chatMeta?.name || message?._data?.notifyName || message?._data?.pushname || phone || "Unknown";
+    const basePhone = chatMeta?.id?.user || message?._data?.from || message?._data?.to || cleanPhone(chatId);
+    const fallback = {
+      name: chatMeta?.name || message?._data?.notifyName || message?._data?.pushname || basePhone || "Unknown",
+      phone: cleanPhone(basePhone),
+      avatar: chatMeta?.profilePicUrl || chatMeta?.avatar || null,
+    };
+    const meta = chatMeta ? fallback : await contactMeta(chatId, fallback);
     return upsertMessage({
       id: message?.id?._serialized || `${chatId}-${message.timestamp}-${message.fromMe ? "out" : "in"}-${message.body || ""}`,
       chatId,
       body: String(message.body || ""),
       timestamp: Number(message.timestamp || Math.floor(Date.now() / 1000)),
       fromMe: Boolean(message.fromMe),
-      name,
-      phone: cleanPhone(phone),
+      name: meta.name || "Unknown",
+      phone: cleanPhone(meta.phone),
+      avatar: meta.avatar || null,
+      isBusiness: Boolean(meta.isBusiness),
+      type: String(message.type || "chat"),
+      hasMedia: Boolean(message.hasMedia),
+      media: null,
       read: Boolean(message.fromMe),
     }, announce);
   } catch (error) { console.error("Could not store WhatsApp message:", error instanceof Error ? error.message : String(error)); return null; }
+}
+
+function upsertMessage(record, announce = true) {
+  if (!record.id || !record.chatId) return null;
+  const index = messages.findIndex((item) => item.id === record.id);
+  if (index >= 0) messages[index] = { ...messages[index], ...record, media: record.media ?? messages[index].media ?? null };
+  else messages.push(record);
+  messages.sort((a, b) => a.timestamp - b.timestamp);
+  saveMessages();
+  const saved = messages[index >= 0 ? index : messages.length - 1];
+  if (announce) emit("message", { message: saved });
+  return saved;
 }
 
 async function syncHistory() {
@@ -65,8 +90,9 @@ async function syncHistory() {
     let imported = 0;
     for (const chat of usable) {
       try {
+        const meta = await contactMeta(chat.id._serialized, { name: chat.name, phone: chat.id.user, avatar: null });
         const history = await chat.fetchMessages({ limit: 30 });
-        for (const message of history) if (await captureMessage(message, chat, false)) imported += 1;
+        for (const message of history) if (await captureMessage(message, { id: chat.id, name: meta.name, profilePicUrl: meta.avatar }, false)) imported += 1;
       } catch (error) { console.error(`Could not sync chat ${chat?.id?._serialized || "unknown"}:`, error instanceof Error ? error.message : String(error)); }
     }
     emit("sync", { imported, chats: usable.length });
@@ -79,7 +105,10 @@ function conversations() {
   const map = new Map();
   for (const message of messages) {
     const current = map.get(message.chatId);
-    if (!current || message.timestamp >= current.timestamp) map.set(message.chatId, { chatId: message.chatId, name: message.name || message.phone || "Unknown", phone: message.phone || "", lastMessage: message.body || "[media/message]", timestamp: message.timestamp, unread: 0 });
+    if (!current || message.timestamp >= current.timestamp) map.set(message.chatId, {
+      chatId: message.chatId, name: message.name || message.phone || "Unknown", phone: message.phone || "", avatar: message.avatar || null,
+      isBusiness: Boolean(message.isBusiness), lastMessage: message.body || (message.hasMedia ? `[${message.type || "media"}]` : "[message]"), timestamp: message.timestamp, unread: 0,
+    });
   }
   for (const message of messages) if (!message.fromMe && !message.read && map.has(message.chatId)) map.get(message.chatId).unread += 1;
   return [...map.values()].sort((a, b) => b.timestamp - a.timestamp);
@@ -115,13 +144,28 @@ const server = http.createServer(async (req, res) => {
     const selected = messages.filter((message) => message.chatId === chatId).sort((a, b) => a.timestamp - b.timestamp); let changed = false; for (const message of selected) if (!message.fromMe && !message.read) { message.read = true; changed = true; } if (changed) saveMessages(); return writeJson(res, 200, { messages: selected });
   }
   if (req.method === "POST" && url.pathname === "/send") {
-    let body = ""; for await (const chunk of req) body += chunk; let payload; try { payload = JSON.parse(body || "{}"); } catch { return writeJson(res, 400, { error: "Invalid JSON." }); }
+    let body = ""; for await (const chunk of req) { body += chunk; if (Buffer.byteLength(body) > MAX_UPLOAD_BYTES + 1024 * 1024) return writeJson(res, 413, { error: "Upload is too large." }); }
+    let payload; try { payload = JSON.parse(body || "{}"); } catch { return writeJson(res, 400, { error: "Invalid JSON." }); }
     const chatId = String(payload.chatId || "").trim(); const text = String(payload.body || "").trim();
     if (!client.info?.wid) return writeJson(res, 409, { error: "WhatsApp is not connected." });
-    if (!chatId || !text) return writeJson(res, 400, { error: "Chat and message are required." });
+    if (!chatId || (!text && !payload.media)) return writeJson(res, 400, { error: "Chat and message are required." });
     if (text.length > 4096) return writeJson(res, 400, { error: "Message is too long." });
-    try { const sent = await client.sendMessage(chatId, text); await captureMessage(sent); return writeJson(res, 200, { ok: true, id: sent?.id?._serialized || null }); }
-    catch (error) { return writeJson(res, 400, { error: error instanceof Error ? error.message : "Could not send message." }); }
+    try {
+      let sent;
+      if (payload.media?.data) {
+        const data = String(payload.media.data);
+        const size = Math.floor((data.length * 3) / 4);
+        if (size > MAX_UPLOAD_BYTES) return writeJson(res, 413, { error: "File is larger than 25 MB." });
+        const media = new MessageMedia(String(payload.media.mimetype || "application/octet-stream"), data, String(payload.media.filename || "file"));
+        const type = String(payload.media.kind || "document");
+        const options = { caption: text || undefined, sendAudioAsVoice: type === "audio" && Boolean(payload.media.voice) };
+        sent = await client.sendMessage(chatId, media, options);
+      } else {
+        sent = await client.sendMessage(chatId, text);
+      }
+      await captureMessage(sent, null, true);
+      return writeJson(res, 200, { ok: true, id: sent?.id?._serialized || null });
+    } catch (error) { return writeJson(res, 400, { error: error instanceof Error ? error.message : "Could not send message." }); }
   }
   if (req.method === "POST" && url.pathname === "/pairing-code") {
     let body = ""; for await (const chunk of req) body += chunk; let phone; try { phone = JSON.parse(body || "{}").phoneNumber; } catch { return writeJson(res, 400, { error: "Invalid JSON." }); }
