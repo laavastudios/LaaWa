@@ -63,6 +63,28 @@ async function captureMessage(message) {
   } catch (error) { console.error("Could not store WhatsApp message:", error); }
 }
 
+async function syncHistory() {
+  try {
+    const chats = await client.getChats();
+    const usable = chats.filter((chat) => chat?.id?._serialized && chat.id._serialized !== "status@broadcast").slice(0, 100);
+    let imported = 0;
+    for (const chat of usable) {
+      try {
+        const history = await chat.fetchMessages({ limit: 50 });
+        for (const message of history) {
+          await captureMessage(message);
+          imported += 1;
+        }
+      } catch (error) {
+        console.error(`Could not sync chat ${chat?.id?._serialized || "unknown"}:`, error?.message || error);
+      }
+    }
+    console.log(`WhatsApp inbox history synced: ${imported} messages from ${usable.length} chats.`);
+  } catch (error) {
+    console.error("Could not sync WhatsApp inbox history:", error?.message || error);
+  }
+}
+
 function conversations() {
   const map = new Map();
   for (const message of messages) {
@@ -93,10 +115,11 @@ client.on("qr", (qr) => {
   qrcode.generate(qr, { small: true });
 });
 client.on("authenticated", () => { state = { ...state, status: "authenticated", qr: null, pairingCode: null, error: null }; console.log("WhatsApp authenticated."); });
-client.on("ready", () => {
+client.on("ready", async () => {
   const info = client.info;
   state = { ...state, status: "connected", connected: true, qr: null, pairingCode: null, phone: info?.wid?.user || null, name: info?.pushname || null, error: null };
   console.log(`WhatsApp connected${state.phone ? `: ${state.phone}` : ""}`);
+  await syncHistory();
 });
 client.on("message_create", captureMessage);
 client.on("auth_failure", (message) => { state = { ...state, status: "error", connected: false, error: String(message), qr: null }; console.error("WhatsApp authentication failed:", message); });
