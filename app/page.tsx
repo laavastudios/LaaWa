@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import WhatsAppSettings from "@/components/WhatsAppSettings";
 
 type Section = "Overview" | "Inbox" | "Customers" | "Leads" | "Appointments" | "Automation" | "WhatsApp" | "AI" | "Analytics" | "Settings";
 const nav: Section[] = ["Overview", "Inbox", "Customers", "Leads", "Appointments", "Automation", "WhatsApp", "AI", "Analytics", "Settings"];
@@ -119,7 +120,9 @@ export default function Home() {
         <div className="security-note"><strong>How this works</strong><span>Your key is sent only to the server, tested with a real Gemini generation request, then encrypted before being stored in an HTTP-only cookie. It is never rendered back as plaintext.</span></div>
       </section>}
 
-      {section !== "Overview" && section !== "Settings" && <section className="panel glass workspace"><div className="eyebrow">WORKSPACE</div><h2>{section}</h2><div className="empty"><strong>Waiting for real integration data</strong><span>No fake records are shown. This module will populate when its underlying integration is connected.</span></div></section>}
+      {section === "WhatsApp" && <WhatsAppSettings />}
+
+      {section !== "Overview" && section !== "Settings" && section !== "WhatsApp" && <section className="panel glass workspace"><div className="eyebrow">WORKSPACE</div><h2>{section}</h2><div className="empty"><strong>Waiting for real integration data</strong><span>No fake records are shown. This module will populate when its underlying integration is connected.</span></div></section>}
     </section>
   </main>;
 }
