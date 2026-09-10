@@ -15,29 +15,62 @@ const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 let state = { status: "starting", connected: false, qr: null, pairingCode: null, phone: null, name: null, error: null };
 let messages = loadMessages();
 const subscribers = new Set();
+const identityCache = new Map();
 let historySyncRunning = false;
 
-function loadMessages() { try { const value = JSON.parse(fs.readFileSync(MESSAGE_FILE, "utf8")); return Array.isArray(value) ? value : []; } catch { return []; } }
-function saveMessages() { fs.mkdirSync(path.dirname(MESSAGE_FILE), { recursive: true }); const temp = `${MESSAGE_FILE}.tmp`; fs.writeFileSync(temp, JSON.stringify(messages.slice(-5000)), "utf8"); fs.renameSync(temp, MESSAGE_FILE); }
+function loadMessages() {
+  try { const value = JSON.parse(fs.readFileSync(MESSAGE_FILE, "utf8")); return Array.isArray(value) ? value : []; }
+  catch { return []; }
+}
+function saveMessages() {
+  fs.mkdirSync(path.dirname(MESSAGE_FILE), { recursive: true });
+  const temp = `${MESSAGE_FILE}.tmp`;
+  fs.writeFileSync(temp, JSON.stringify(messages.slice(-5000)), "utf8");
+  fs.renameSync(temp, MESSAGE_FILE);
+}
 function authorized(req) { return !SECRET || req.headers.authorization === `Bearer ${SECRET}`; }
 function writeJson(res, status, body) { res.writeHead(status, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" }); res.end(JSON.stringify(body)); }
 function cleanPhone(value) { return String(value || "").replace(/\D/g, ""); }
-function emit(type, payload = {}) { const packet = `event: ${type}\ndata: ${JSON.stringify(payload)}\n\n`; for (const res of subscribers) { try { res.write(packet); } catch { subscribers.delete(res); } } }
-
-async function contactMeta(chatId, fallback = {}) {
-  const meta = { ...fallback, chatId };
-  try {
-    if (!chatId || chatId.includes("@newsletter") || chatId.includes("@broadcast")) return meta;
-    const contact = await client.getContactById(chatId);
-    if (contact) {
-      meta.name = contact.pushname || contact.name || contact.shortName || meta.name || "Unknown";
-      meta.phone = cleanPhone(contact.number || contact.id?.user || meta.phone || chatId);
-      try { meta.avatar = await contact.getProfilePicUrl(); } catch {}
-      meta.isBusiness = Boolean(contact.isBusiness);
-    }
-  } catch {}
-  return meta;
+function emit(type, payload = {}) {
+  const packet = `event: ${type}\ndata: ${JSON.stringify(payload)}\n\n`;
+  for (const res of subscribers) { try { res.write(packet); } catch { subscribers.delete(res); } }
 }
+
+async function resolveIdentity(chatId, fallback = {}) {
+  const base = { ...fallback, chatId };
+  if (!chatId || chatId.includes("@newsletter") || chatId.includes("@broadcast") || chatId === "status@broadcast") return base;
+  const cached = identityCache.get(chatId);
+  if (cached && Date.now() - cached.time < 5 * 60 * 1000) return { ...base, ...cached.value };
+
+  try {
+    let lookupId = chatId;
+    let lidPhone = "";
+    if (chatId.endsWith("@lid")) {
+      try {
+        const mapped = await client.getContactLidAndPhone([chatId]);
+        const pn = mapped?.[0]?.pn;
+        if (pn) { lidPhone = cleanPhone(pn); lookupId = `${lidPhone}@c.us`; }
+      } catch {}
+    }
+
+    let contact = null;
+    try { contact = await client.getContactById(lookupId); } catch {}
+    if (!contact && lookupId !== chatId) { try { contact = await client.getContactById(chatId); } catch {} }
+
+    const number = cleanPhone(contact?.number || lidPhone || contact?.id?.user || fallback.phone || (lookupId.endsWith("@c.us") ? lookupId.split("@")[0] : ""));
+    const name = String(contact?.name || contact?.shortName || contact?.pushname || fallback.name || number || "Unknown").trim();
+    let avatar = contact?.profilePicUrl || contact?.avatar || fallback.avatar || null;
+    try { avatar = await client.getProfilePicUrl(lookupId); } catch {}
+
+    const value = { name: name || "Unknown", phone: number, avatar: avatar || null, isBusiness: Boolean(contact?.isBusiness), resolvedId: lookupId };
+    identityCache.set(chatId, { time: Date.now(), value });
+    return { ...base, ...value };
+  } catch {
+    return base;
+  }
+}
+
+async function contactMeta(chatId, fallback = {}) { return resolveIdentity(chatId, fallback); }
 
 async function captureMessage(message, chatMeta = null, announce = true) {
   try {
@@ -50,7 +83,7 @@ async function captureMessage(message, chatMeta = null, announce = true) {
       phone: cleanPhone(basePhone),
       avatar: chatMeta?.profilePicUrl || chatMeta?.avatar || null,
     };
-    const meta = chatMeta ? fallback : await contactMeta(chatId, fallback);
+    const meta = await contactMeta(chatId, fallback);
     return upsertMessage({
       id: message?.id?._serialized || `${chatId}-${message.timestamp}-${message.fromMe ? "out" : "in"}-${message.body || ""}`,
       chatId,
@@ -81,6 +114,24 @@ function upsertMessage(record, announce = true) {
   return saved;
 }
 
+async function refreshStoredIdentities() {
+  const ids = [...new Set(messages.map((m) => m.chatId).filter((id) => id && !id.includes("@newsletter") && !id.includes("@broadcast")))] .slice(0, 40);
+  let changed = false;
+  for (const chatId of ids) {
+    const sample = messages.find((m) => m.chatId === chatId);
+    const meta = await resolveIdentity(chatId, { name: sample?.name, phone: sample?.phone, avatar: sample?.avatar, isBusiness: sample?.isBusiness });
+    for (const message of messages) {
+      if (message.chatId !== chatId) continue;
+      if (meta.name && message.name !== meta.name) { message.name = meta.name; changed = true; }
+      if (meta.phone && message.phone !== meta.phone) { message.phone = meta.phone; changed = true; }
+      if (meta.avatar && message.avatar !== meta.avatar) { message.avatar = meta.avatar; changed = true; }
+      if (typeof meta.isBusiness === "boolean" && message.isBusiness !== meta.isBusiness) { message.isBusiness = meta.isBusiness; changed = true; }
+    }
+  }
+  if (changed) saveMessages();
+  emit("snapshot", { conversations: conversations() });
+}
+
 async function syncHistory() {
   if (historySyncRunning) return;
   historySyncRunning = true;
@@ -97,6 +148,7 @@ async function syncHistory() {
     }
     emit("sync", { imported, chats: usable.length });
     console.log(`WhatsApp inbox history synced: ${imported} messages from ${usable.length} chats.`);
+    await refreshStoredIdentities();
   } catch (error) { console.error("Could not sync WhatsApp inbox history:", error instanceof Error ? error.message : String(error)); }
   finally { historySyncRunning = false; }
 }
@@ -106,21 +158,31 @@ function conversations() {
   for (const message of messages) {
     const current = map.get(message.chatId);
     if (!current || message.timestamp >= current.timestamp) map.set(message.chatId, {
-      chatId: message.chatId, name: message.name || message.phone || "Unknown", phone: message.phone || "", avatar: message.avatar || null,
-      isBusiness: Boolean(message.isBusiness), lastMessage: message.body || (message.hasMedia ? `[${message.type || "media"}]` : "[message]"), timestamp: message.timestamp, unread: 0,
+      chatId: message.chatId,
+      name: message.name || message.phone || "Unknown",
+      phone: message.phone || "",
+      avatar: message.avatar || null,
+      isBusiness: Boolean(message.isBusiness),
+      lastMessage: message.body || (message.hasMedia ? `[${message.type || "media"}]` : "[message]"),
+      timestamp: message.timestamp,
+      unread: 0,
     });
   }
   for (const message of messages) if (!message.fromMe && !message.read && map.has(message.chatId)) map.get(message.chatId).unread += 1;
   return [...map.values()].sort((a, b) => b.timestamp - a.timestamp);
 }
 
-const client = new Client({ authStrategy: new LocalAuth({ dataPath: AUTH_PATH }), puppeteer: { headless: true, args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"] } });
+const client = new Client({
+  authStrategy: new LocalAuth({ dataPath: AUTH_PATH }),
+  puppeteer: { headless: true, args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"] },
+});
+
 client.on("qr", (qr) => { state = { ...state, status: "qr", connected: false, qr, pairingCode: null, error: null }; emit("state", state); console.log("\nWhatsApp QR code ready — scan it from Linked Devices.\n"); qrcode.generate(qr, { small: true }); });
 client.on("authenticated", () => { state = { ...state, status: "authenticated", qr: null, pairingCode: null, error: null }; emit("state", state); console.log("WhatsApp authenticated."); });
 client.on("ready", async () => { const info = client.info; state = { ...state, status: "connected", connected: true, qr: null, pairingCode: null, phone: info?.wid?.user || null, name: info?.pushname || null, error: null }; emit("state", state); console.log(`WhatsApp connected${state.phone ? `: ${state.phone}` : ""}`); void syncHistory(); });
 client.on("message_create", (message) => { void captureMessage(message); });
 client.on("auth_failure", (message) => { state = { ...state, status: "error", connected: false, error: String(message), qr: null }; emit("state", state); console.error("WhatsApp authentication failed:", message); });
-client.on("disconnected", (reason) => { state = { ...state, status: "disconnected", connected: false, qr: null, pairingCode: null, error: String(reason || "Disconnected") }; emit("state", state); console.log("WhatsApp disconnected:", reason); });
+client.on("disconnected", (reason) => { identityCache.clear(); state = { ...state, status: "disconnected", connected: false, qr: null, pairingCode: null, error: String(reason || "Disconnected") }; emit("state", state); console.log("WhatsApp disconnected:", reason); });
 client.on("change_state", (next) => { if (!state.connected) { state = { ...state, status: String(next).toLowerCase() }; emit("state", state); } });
 
 const server = http.createServer(async (req, res) => {
@@ -160,9 +222,7 @@ const server = http.createServer(async (req, res) => {
         const type = String(payload.media.kind || "document");
         const options = { caption: text || undefined, sendAudioAsVoice: type === "audio" && Boolean(payload.media.voice) };
         sent = await client.sendMessage(chatId, media, options);
-      } else {
-        sent = await client.sendMessage(chatId, text);
-      }
+      } else sent = await client.sendMessage(chatId, text);
       await captureMessage(sent, null, true);
       return writeJson(res, 200, { ok: true, id: sent?.id?._serialized || null });
     } catch (error) { return writeJson(res, 400, { error: error instanceof Error ? error.message : "Could not send message." }); }
@@ -174,7 +234,7 @@ const server = http.createServer(async (req, res) => {
     catch (error) { state = { ...state, status: "error", error: error instanceof Error ? error.message : "Could not create pairing code." }; emit("state", state); return writeJson(res, 400, { error: state.error }); }
   }
   if (req.method === "POST" && url.pathname === "/logout") {
-    try { await client.logout(); state = { status: "logged_out", connected: false, qr: null, pairingCode: null, phone: null, name: null, error: null }; emit("state", state); return writeJson(res, 200, { ok: true }); }
+    try { await client.logout(); identityCache.clear(); state = { status: "logged_out", connected: false, qr: null, pairingCode: null, phone: null, name: null, error: null }; emit("state", state); return writeJson(res, 200, { ok: true }); }
     catch (error) { return writeJson(res, 400, { error: error instanceof Error ? error.message : "Could not disconnect." }); }
   }
   return writeJson(res, 404, { error: "Not found." });
