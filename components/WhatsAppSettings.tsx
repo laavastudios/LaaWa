@@ -2,104 +2,131 @@
 
 import { useEffect, useState } from "react";
 
-type WhatsAppState = {
-  configured: boolean;
-  source: "dashboard" | "environment" | null;
-  phoneNumberId: string | null;
+type State = {
+  status: string;
+  connected: boolean;
+  qr: string | null;
+  pairingCode: string | null;
+  phone: string | null;
+  name: string | null;
+  error: string | null;
 };
 
+const initial: State = { status: "offline", connected: false, qr: null, pairingCode: null, phone: null, name: null, error: null };
+
 export default function WhatsAppSettings() {
-  const [state, setState] = useState<WhatsAppState>({ configured: false, source: null, phoneNumberId: null });
-  const [accessToken, setAccessToken] = useState("");
-  const [phoneNumberId, setPhoneNumberId] = useState("");
+  const [state, setState] = useState<State>(initial);
+  const [mode, setMode] = useState<"qr" | "phone">("qr");
+  const [phone, setPhone] = useState("");
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  async function load() {
-    const response = await fetch("/api/settings/whatsapp", { cache: "no-store" });
-    if (response.ok) setState(await response.json());
+  async function refresh() {
+    try {
+      const status = await fetch("/api/whatsapp/status", { cache: "no-store" });
+      const data = await status.json();
+      if (!status.ok) throw new Error(data.error || "WhatsApp worker unavailable.");
+      setState(data);
+
+      if (data.qr) {
+        const qr = await fetch("/api/whatsapp/qr", { cache: "no-store" });
+        const qrData = await qr.json();
+        if (qrData.qr) setState((current) => ({ ...current, qr: qrData.qr }));
+      }
+    } catch (e) {
+      setState((current) => ({ ...current, status: "offline", connected: false }));
+      setError(e instanceof Error ? e.message : "WhatsApp worker unavailable.");
+    }
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    refresh();
+    const timer = window.setInterval(refresh, 2500);
+    return () => window.clearInterval(timer);
+  }, []);
 
-  async function connect() {
-    if (!accessToken.trim() || !phoneNumberId.trim()) return;
-    setBusy(true); setMessage(""); setError("");
-
-    const response = await fetch("/api/settings/whatsapp", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ accessToken: accessToken.trim(), phoneNumberId: phoneNumberId.trim() }),
-    });
-    const data = await response.json();
-
-    if (response.ok) {
-      setState({ configured: true, source: "dashboard", phoneNumberId: data.phoneNumberId });
-      setAccessToken("");
-      setPhoneNumberId("");
-      setMessage(`Connected${data.verifiedName ? ` to ${data.verifiedName}` : ""}${data.displayPhoneNumber ? ` · ${data.displayPhoneNumber}` : ""}.`);
-    } else {
-      setError(data.error || "WhatsApp connection failed.");
+  async function generateCode() {
+    if (!phone.trim()) return;
+    setBusy(true); setError("");
+    try {
+      const response = await fetch("/api/whatsapp/pairing-code", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ phoneNumber: phone.trim() }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not generate pairing code.");
+      setState((current) => ({ ...current, status: "pairing", pairingCode: data.code, qr: null, phone: phone.replace(/\D/g, "") }));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not generate pairing code.");
+    } finally {
+      setBusy(false);
     }
-
-    setBusy(false);
   }
 
   async function disconnect() {
-    setBusy(true); setMessage(""); setError("");
-    const response = await fetch("/api/settings/whatsapp", { method: "DELETE" });
-    if (response.ok) {
-      setState({ configured: false, source: null, phoneNumberId: null });
-      setMessage("Dashboard WhatsApp credentials removed.");
-    } else {
-      setError("Could not remove the saved WhatsApp credentials.");
+    setBusy(true); setError("");
+    try {
+      const response = await fetch("/api/whatsapp/logout", { method: "POST" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not disconnect WhatsApp.");
+      setState(initial);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not disconnect WhatsApp.");
+    } finally {
+      setBusy(false);
     }
-    setBusy(false);
   }
 
+  const statusLabel = state.connected ? "Connected" : state.status === "qr" ? "Waiting for QR scan" : state.status === "pairing" ? "Waiting for phone confirmation" : state.status === "offline" ? "Worker offline" : "Connecting";
+
   return (
-    <section className="panel glass settings-panel whatsapp-settings">
+    <section className="panel glass whatsapp-settings">
       <div className="panel-head">
         <div>
-          <div className="eyebrow">WHATSAPP CLOUD API</div>
-          <h2>Connect your business number</h2>
-          <p className="small muted" style={{ marginTop: 6 }}>
-            LaaWa checks the credentials against Meta before saving them. No fake online status is shown.
-          </p>
+          <div className="eyebrow">WHATSAPP WEB</div>
+          <h2>Connect WhatsApp</h2>
+          <p className="small muted" style={{ marginTop: 6 }}>Link your real WhatsApp account. Your session is saved by the worker so you do not need to scan every time.</p>
         </div>
-        <span className={state.configured ? "badge good" : "badge"}>{state.configured ? "Connected" : "Not connected"}</span>
+        <span className={state.connected ? "badge good" : "badge"}>{statusLabel}</span>
       </div>
 
-      {state.configured && (
-        <div className="saved-key">
-          <span>{state.phoneNumberId}</span>
-          <span className="small muted">{state.source === "dashboard" ? "Saved securely in this browser" : "Environment configuration"}</span>
+      {state.connected ? (
+        <div className="wa-connected">
+          <div className="wa-check">✓</div>
+          <div>
+            <strong>{state.name || "WhatsApp account"}</strong>
+            <div className="small muted">{state.phone ? `+${state.phone}` : "Connected account"}</div>
+          </div>
+          <button className="danger" onClick={disconnect} disabled={busy}>{busy ? "Disconnecting…" : "Disconnect"}</button>
         </div>
+      ) : (
+        <>
+          <div className="wa-tabs">
+            <button className={mode === "qr" ? "active" : ""} onClick={() => { setMode("qr"); setError(""); }}>Scan QR code</button>
+            <button className={mode === "phone" ? "active" : ""} onClick={() => { setMode("phone"); setError(""); }}>Use phone number</button>
+          </div>
+
+          {mode === "qr" ? (
+            <div className="wa-connect-card">
+              {state.qr ? <img className="wa-qr" src={state.qr} alt="WhatsApp pairing QR code" /> : <div className="wa-qr-placeholder"><div className="spinner" /><strong>Preparing secure QR…</strong><span className="small muted">Keep this page open.</span></div>}
+              <div className="wa-steps"><strong>On your phone</strong><span>1. Open WhatsApp</span><span>2. Go to Linked Devices</span><span>3. Tap Link a Device</span><span>4. Scan this QR code</span></div>
+            </div>
+          ) : (
+            <div className="wa-connect-card wa-phone-card">
+              <div className="field"><label>Mobile number</label><input className="setting-input" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="919876543210" inputMode="tel" autoComplete="tel" /></div>
+              <button className="primary compact" onClick={generateCode} disabled={busy || !phone.trim()}>{busy ? "Generating…" : "Generate 8-character code"}</button>
+              {state.pairingCode && <div className="pairing-code"><span className="small muted">Enter this code in WhatsApp → Linked Devices</span><strong>{state.pairingCode}</strong></div>}
+              <div className="wa-steps"><strong>On your phone</strong><span>1. Open WhatsApp</span><span>2. Go to Linked Devices</span><span>3. Choose Link with phone number instead</span><span>4. Enter the 8-character code above</span></div>
+            </div>
+          )}
+        </>
       )}
 
-      <div className="field">
-        <label>WhatsApp access token</label>
-        <input className="setting-input" type="password" value={accessToken} onChange={(e) => setAccessToken(e.target.value)} placeholder="Paste your Meta access token" autoComplete="off" />
-      </div>
-
-      <div className="field">
-        <label>Phone number ID</label>
-        <input className="setting-input" value={phoneNumberId} onChange={(e) => setPhoneNumberId(e.target.value)} placeholder="WhatsApp phone number ID" autoComplete="off" />
-      </div>
-
-      <div className="button-row">
-        <button className="primary compact" onClick={connect} disabled={busy || !accessToken.trim() || !phoneNumberId.trim()}>{busy ? "Checking…" : state.configured ? "Check & replace" : "Check & connect"}</button>
-        {state.configured && <button className="danger" onClick={disconnect} disabled={busy}>Disconnect</button>}
-      </div>
-
-      {message && <div className="success">{message}</div>}
       {error && <div className="error">{error}</div>}
+      {state.error && !error && <div className="error">{state.error}</div>}
 
-      <div className="security-note">
-        <strong>What LaaWa checks</strong>
-        <span>The access token is used server-side to query the selected WhatsApp phone number through Meta's Graph API. Only masked identifiers are returned to the dashboard.</span>
-      </div>
+      <div className="security-note"><strong>Real connection</strong><span>This uses WhatsApp Web device linking through the persistent LaaWa WhatsApp worker. It is not a fake dashboard status.</span></div>
     </section>
   );
 }
