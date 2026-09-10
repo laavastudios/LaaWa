@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import WhatsAppSettings from "@/components/WhatsAppSettings";
+import Inbox from "@/components/Inbox";
 
 type Section = "Overview" | "Inbox" | "Customers" | "Leads" | "Appointments" | "Automation" | "WhatsApp" | "AI" | "Analytics" | "Settings";
 const nav: Section[] = ["Overview", "Inbox", "Customers", "Leads", "Appointments", "Automation", "WhatsApp", "AI", "Analytics", "Settings"];
@@ -33,18 +34,13 @@ export default function Home() {
       const r = await fetch("/api/whatsapp/status", { cache: "no-store" });
       if (r.ok) setWhatsappConnected(Boolean((await r.json()).connected));
       else setWhatsappConnected(false);
-    } catch {
-      setWhatsappConnected(false);
-    }
+    } catch { setWhatsappConnected(false); }
   }
 
   useEffect(() => {
     fetch("/api/auth/me").then((r) => r.json()).then((data) => {
       setAuthenticated(Boolean(data.authenticated));
-      if (data.authenticated) {
-        loadGemini();
-        loadWhatsAppStatus();
-      }
+      if (data.authenticated) { loadGemini(); loadWhatsAppStatus(); }
     }).catch(() => setAuthenticated(false));
   }, []);
 
@@ -124,9 +120,12 @@ export default function Home() {
         </div>
         <div className="grid">
           <section className="panel glass"><div className="panel-head"><h2>Live activity</h2><span className="small muted">Real events only</span></div><div className="empty"><strong>No activity yet</strong><span>Connect WhatsApp to start receiving real events.</span></div></section>
-          <section className="panel glass"><div className="panel-head"><h2>System setup</h2></div><div className="quick"><button onClick={() => setSection("Settings")}>Configure Gemini API <span>→</span></button><button onClick={() => setSection("WhatsApp")}>Connect WhatsApp <span>→</span></button><button onClick={() => setSection("AI")}>Configure AI agent <span>→</span></button><button onClick={() => setSection("Automation")}>Create automation <span>→</span></button></div></section>
+          <section className="panel glass"><div className="panel-head"><h2>System setup</h2></div><div className="quick"><button onClick={() => setSection("Settings")}>Configure Gemini API <span>→</span></button><button onClick={() => setSection("WhatsApp")}>Connect WhatsApp <span>→</span></button><button onClick={() => setSection("Inbox")}>Open Inbox <span>→</span></button><button onClick={() => setSection("Automation")}>Create automation <span>→</span></button></div></section>
         </div>
       </>}
+
+      {section === "Inbox" && <Inbox />}
+      {section === "WhatsApp" && <WhatsAppSettings />}
 
       {section === "Settings" && <section className="panel glass settings-panel">
         <div className="panel-head"><div><div className="eyebrow">CONFIGURATION</div><h2>AI provider</h2><p className="small muted" style={{ marginTop: 6 }}>Use your own Google Gemini API key. LaaWa verifies it against the Gemini API before saving.</p></div><span className={gemini.configured ? "badge good" : "badge"}>{gemini.configured ? "Configured" : "Not configured"}</span></div>
@@ -140,9 +139,7 @@ export default function Home() {
         <div className="security-note"><strong>How this works</strong><span>Your key is sent only to the server, tested with a real Gemini generation request, then encrypted before being stored in an HTTP-only cookie. It is never rendered back as plaintext.</span></div>
       </section>}
 
-      {section === "WhatsApp" && <WhatsAppSettings />}
-
-      {section !== "Overview" && section !== "Settings" && section !== "WhatsApp" && <section className="panel glass workspace"><div className="eyebrow">WORKSPACE</div><h2>{section}</h2><div className="empty"><strong>Waiting for real integration data</strong><span>No fake records are shown. This module will populate when its underlying integration is connected.</span></div></section>}
+      {section !== "Overview" && section !== "Inbox" && section !== "Settings" && section !== "WhatsApp" && <section className="panel glass workspace"><div className="eyebrow">WORKSPACE</div><h2>{section}</h2><div className="empty"><strong>Waiting for real integration data</strong><span>No fake records are shown. This module will populate when its underlying integration is connected.</span></div></section>}
     </section>
   </main>;
 }
