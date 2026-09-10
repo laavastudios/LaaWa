@@ -13,6 +13,8 @@ const MESSAGE_FILE = path.join(path.resolve(AUTH_PATH), "messages.json");
 
 let state = { status: "starting", connected: false, qr: null, pairingCode: null, phone: null, name: null, error: null };
 let messages = loadMessages();
+const subscribers = new Set();
+let historySyncRunning = false;
 
 function loadMessages() {
   try {
@@ -24,7 +26,7 @@ function loadMessages() {
 function saveMessages() {
   fs.mkdirSync(path.dirname(MESSAGE_FILE), { recursive: true });
   const temp = `${MESSAGE_FILE}.tmp`;
-  fs.writeFileSync(temp, JSON.stringify(messages.slice(-2000)), "utf8");
+  fs.writeFileSync(temp, JSON.stringify(messages.slice(-5000)), "utf8");
   fs.renameSync(temp, MESSAGE_FILE);
 }
 
@@ -34,54 +36,77 @@ function writeJson(res, status, body) {
   res.end(JSON.stringify(body));
 }
 function cleanPhone(value) { return String(value || "").replace(/\D/g, ""); }
+function emit(type, payload = {}) {
+  const packet = `event: ${type}\ndata: ${JSON.stringify(payload)}\n\n`;
+  for (const res of subscribers) {
+    try { res.write(packet); } catch { subscribers.delete(res); }
+  }
+}
 
 function upsertMessage(record) {
-  if (!record.id || !record.chatId) return;
+  if (!record.id || !record.chatId) return null;
   const index = messages.findIndex((item) => item.id === record.id);
   if (index >= 0) messages[index] = { ...messages[index], ...record };
   else messages.push(record);
   messages.sort((a, b) => a.timestamp - b.timestamp);
   saveMessages();
+  return messages[index >= 0 ? index : messages.length - 1];
 }
 
-async function captureMessage(message) {
+async function captureMessage(message, chatMeta = null) {
   try {
-    const chat = await message.getChat();
-    const chatId = chat?.id?._serialized || (message.fromMe ? message.to : message.from);
-    const phone = chat?.id?.user || cleanPhone(chatId);
-    const name = chat?.name || message?._data?.notifyName || phone || "Unknown";
-    upsertMessage({
-      id: message?.id?._serialized || `${chatId}-${message.timestamp}-${Math.random()}`,
+    // Do not call message.getChat() here. WhatsApp Web can invalidate the
+    // Puppeteer execution context while delivering a live event, which was
+    // the source of the "r: r" errors seen in the worker log.
+    const rawChatId = chatMeta?.id?._serialized || (message.fromMe ? message.to : message.from);
+    const chatId = String(rawChatId || "").trim();
+    if (!chatId || chatId === "status@broadcast") return null;
+    const phone = chatMeta?.id?.user || message?._data?.from || message?._data?.to || cleanPhone(chatId);
+    const name = chatMeta?.name || message?._data?.notifyName || message?._data?.pushname || phone || "Unknown";
+    const record = upsertMessage({
+      id: message?.id?._serialized || `${chatId}-${message.timestamp}-${message.fromMe ? "out" : "in"}-${message.body || ""}`,
       chatId,
       body: String(message.body || ""),
       timestamp: Number(message.timestamp || Math.floor(Date.now() / 1000)),
       fromMe: Boolean(message.fromMe),
       name,
-      phone,
+      phone: cleanPhone(phone),
       read: Boolean(message.fromMe),
     });
-  } catch (error) { console.error("Could not store WhatsApp message:", error); }
+    if (record) emit("message", { message: record });
+    return record;
+  } catch (error) {
+    console.error("Could not store WhatsApp message:", error instanceof Error ? error.message : String(error));
+    return null;
+  }
 }
 
 async function syncHistory() {
+  if (historySyncRunning) return;
+  historySyncRunning = true;
   try {
     const chats = await client.getChats();
-    const usable = chats.filter((chat) => chat?.id?._serialized && chat.id._serialized !== "status@broadcast").slice(0, 100);
+    const usable = chats
+      .filter((chat) => chat?.id?._serialized && chat.id._serialized !== "status@broadcast")
+      .filter((chat) => !chat.isGroup)
+      .slice(0, 40);
     let imported = 0;
     for (const chat of usable) {
       try {
-        const history = await chat.fetchMessages({ limit: 50 });
+        const history = await chat.fetchMessages({ limit: 30 });
         for (const message of history) {
-          await captureMessage(message);
-          imported += 1;
+          if (await captureMessage(message, chat)) imported += 1;
         }
       } catch (error) {
-        console.error(`Could not sync chat ${chat?.id?._serialized || "unknown"}:`, error?.message || error);
+        console.error(`Could not sync chat ${chat?.id?._serialized || "unknown"}:`, error instanceof Error ? error.message : String(error));
       }
     }
+    emit("sync", { imported, chats: usable.length });
     console.log(`WhatsApp inbox history synced: ${imported} messages from ${usable.length} chats.`);
   } catch (error) {
-    console.error("Could not sync WhatsApp inbox history:", error?.message || error);
+    console.error("Could not sync WhatsApp inbox history:", error instanceof Error ? error.message : String(error));
+  } finally {
+    historySyncRunning = false;
   }
 }
 
@@ -100,7 +125,9 @@ function conversations() {
       });
     }
   }
-  for (const message of messages) if (!message.fromMe && !message.read && map.has(message.chatId)) map.get(message.chatId).unread += 1;
+  for (const message of messages) {
+    if (!message.fromMe && !message.read && map.has(message.chatId)) map.get(message.chatId).unread += 1;
+  }
   return [...map.values()].sort((a, b) => b.timestamp - a.timestamp);
 }
 
@@ -111,24 +138,58 @@ const client = new Client({
 
 client.on("qr", (qr) => {
   state = { ...state, status: "qr", connected: false, qr, pairingCode: null, error: null };
+  emit("state", state);
   console.log("\nWhatsApp QR code ready — scan it from Linked Devices.\n");
   qrcode.generate(qr, { small: true });
 });
-client.on("authenticated", () => { state = { ...state, status: "authenticated", qr: null, pairingCode: null, error: null }; console.log("WhatsApp authenticated."); });
+client.on("authenticated", () => {
+  state = { ...state, status: "authenticated", qr: null, pairingCode: null, error: null };
+  emit("state", state);
+  console.log("WhatsApp authenticated.");
+});
 client.on("ready", async () => {
   const info = client.info;
   state = { ...state, status: "connected", connected: true, qr: null, pairingCode: null, phone: info?.wid?.user || null, name: info?.pushname || null, error: null };
+  emit("state", state);
   console.log(`WhatsApp connected${state.phone ? `: ${state.phone}` : ""}`);
-  await syncHistory();
+  void syncHistory();
 });
-client.on("message_create", captureMessage);
-client.on("auth_failure", (message) => { state = { ...state, status: "error", connected: false, error: String(message), qr: null }; console.error("WhatsApp authentication failed:", message); });
-client.on("disconnected", (reason) => { state = { ...state, status: "disconnected", connected: false, qr: null, pairingCode: null, error: String(reason || "Disconnected") }; console.log("WhatsApp disconnected:", reason); });
-client.on("change_state", (next) => { if (!state.connected) state = { ...state, status: String(next).toLowerCase() }; });
+client.on("message_create", (message) => { void captureMessage(message); });
+client.on("auth_failure", (message) => {
+  state = { ...state, status: "error", connected: false, error: String(message), qr: null };
+  emit("state", state);
+  console.error("WhatsApp authentication failed:", message);
+});
+client.on("disconnected", (reason) => {
+  state = { ...state, status: "disconnected", connected: false, qr: null, pairingCode: null, error: String(reason || "Disconnected") };
+  emit("state", state);
+  console.log("WhatsApp disconnected:", reason);
+});
+client.on("change_state", (next) => {
+  if (!state.connected) {
+    state = { ...state, status: String(next).toLowerCase() };
+    emit("state", state);
+  }
+});
 
 const server = http.createServer(async (req, res) => {
   if (!authorized(req)) return writeJson(res, 401, { error: "Unauthorized" });
   const url = new URL(req.url || "/", `http://${HOST}:${PORT}`);
+
+  if (req.method === "GET" && url.pathname === "/events") {
+    res.writeHead(200, {
+      "content-type": "text/event-stream; charset=utf-8",
+      "cache-control": "no-cache, no-store, must-revalidate",
+      "connection": "keep-alive",
+      "x-accel-buffering": "no",
+    });
+    res.write(`event: state\ndata: ${JSON.stringify(state)}\n\n`);
+    res.write(`event: snapshot\ndata: ${JSON.stringify({ conversations: conversations() })}\n\n`);
+    subscribers.add(res);
+    const heartbeat = setInterval(() => { try { res.write(": keepalive\n\n"); } catch {} }, 15000);
+    req.on("close", () => { clearInterval(heartbeat); subscribers.delete(res); });
+    return;
+  }
 
   if (req.method === "GET" && url.pathname === "/status") {
     const chatId = url.searchParams.get("chatId");
@@ -155,7 +216,8 @@ const server = http.createServer(async (req, res) => {
   if (req.method === "POST" && url.pathname === "/send") {
     let body = "";
     for await (const chunk of req) body += chunk;
-    const payload = JSON.parse(body || "{}");
+    let payload;
+    try { payload = JSON.parse(body || "{}"); } catch { return writeJson(res, 400, { error: "Invalid JSON." }); }
     const chatId = String(payload.chatId || "").trim();
     const text = String(payload.body || "").trim();
     if (!client.info?.wid) return writeJson(res, 409, { error: "WhatsApp is not connected." });
@@ -177,20 +239,26 @@ const server = http.createServer(async (req, res) => {
     try {
       if (client.info?.wid) return writeJson(res, 409, { error: "WhatsApp is already connected." });
       state = { ...state, status: "pairing", pairingCode: null, qr: null, phone: clean, error: null };
+      emit("state", state);
       const code = await client.requestPairingCode(clean);
       state = { ...state, status: "pairing", pairingCode: String(code).toUpperCase() };
+      emit("state", state);
       return writeJson(res, 200, { ok: true, code: state.pairingCode });
-    } catch (error) { state = { ...state, status: "error", error: error instanceof Error ? error.message : "Could not create pairing code." }; return writeJson(res, 400, { error: state.error }); }
+    } catch (error) { state = { ...state, status: "error", error: error instanceof Error ? error.message : "Could not create pairing code." }; emit("state", state); return writeJson(res, 400, { error: state.error }); }
   }
 
   if (req.method === "POST" && url.pathname === "/logout") {
-    try { await client.logout(); state = { status: "logged_out", connected: false, qr: null, pairingCode: null, phone: null, name: null, error: null }; return writeJson(res, 200, { ok: true }); }
-    catch (error) { return writeJson(res, 400, { error: error instanceof Error ? error.message : "Could not disconnect." }); }
+    try {
+      await client.logout();
+      state = { status: "logged_out", connected: false, qr: null, pairingCode: null, phone: null, name: null, error: null };
+      emit("state", state);
+      return writeJson(res, 200, { ok: true });
+    } catch (error) { return writeJson(res, 400, { error: error instanceof Error ? error.message : "Could not disconnect." }); }
   }
   return writeJson(res, 404, { error: "Not found." });
 });
 
 server.listen(PORT, HOST, () => {
   console.log(`LaaWa WhatsApp worker listening on http://${HOST}:${PORT}`);
-  client.initialize().catch((error) => { state = { ...state, status: "error", error: error instanceof Error ? error.message : String(error) }; console.error("WhatsApp initialization failed:", error); });
+  client.initialize().catch((error) => { state = { ...state, status: "error", error: error instanceof Error ? error.message : String(error) }; emit("state", state); console.error("WhatsApp initialization failed:", error); });
 });
