@@ -21,24 +21,44 @@ export default function Home() {
   const [geminiBusy, setGeminiBusy] = useState(false);
   const [geminiMessage, setGeminiMessage] = useState("");
   const [geminiError, setGeminiError] = useState("");
+  const [whatsappConnected, setWhatsappConnected] = useState(false);
 
   async function loadGemini() {
     const r = await fetch("/api/settings/gemini", { cache: "no-store" });
     if (r.ok) setGemini(await r.json());
   }
 
+  async function loadWhatsAppStatus() {
+    try {
+      const r = await fetch("/api/whatsapp/status", { cache: "no-store" });
+      if (r.ok) setWhatsappConnected(Boolean((await r.json()).connected));
+      else setWhatsappConnected(false);
+    } catch {
+      setWhatsappConnected(false);
+    }
+  }
+
   useEffect(() => {
     fetch("/api/auth/me").then((r) => r.json()).then((data) => {
       setAuthenticated(Boolean(data.authenticated));
-      if (data.authenticated) loadGemini();
+      if (data.authenticated) {
+        loadGemini();
+        loadWhatsAppStatus();
+      }
     }).catch(() => setAuthenticated(false));
   }, []);
+
+  useEffect(() => {
+    if (!authenticated) return;
+    const timer = window.setInterval(loadWhatsAppStatus, 4000);
+    return () => window.clearInterval(timer);
+  }, [authenticated]);
 
   async function login(e: React.FormEvent) {
     e.preventDefault(); setLoading(true); setError("");
     const response = await fetch("/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username, password }) });
     const data = await response.json();
-    if (!response.ok) setError(data.error || "Login failed."); else { setAuthenticated(true); loadGemini(); }
+    if (!response.ok) setError(data.error || "Login failed."); else { setAuthenticated(true); loadGemini(); loadWhatsAppStatus(); }
     setLoading(false);
   }
 
@@ -96,7 +116,7 @@ export default function Home() {
     </aside>
 
     <section className="main">
-      <header className="top"><div className="title"><div className="eyebrow">LAAWA / COMMAND CENTER</div><h1>{section}</h1><p>{section === "Overview" ? "Live system state — no demo numbers." : `Manage ${section.toLowerCase()} from LaaWa.`}</p></div><div className="status"><span className="dot off" /> WhatsApp status: not connected</div></header>
+      <header className="top"><div className="title"><div className="eyebrow">LAAWA / COMMAND CENTER</div><h1>{section}</h1><p>{section === "Overview" ? "Live system state — no demo numbers." : `Manage ${section.toLowerCase()} from LaaWa.`}</p></div><div className="status"><span className={whatsappConnected ? "dot" : "dot off"} /> WhatsApp: {whatsappConnected ? "connected" : "not connected"}</div></header>
 
       {section === "Overview" && <>
         <div className="cards">
