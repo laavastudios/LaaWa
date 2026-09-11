@@ -5,9 +5,10 @@ import WhatsAppSettings from "@/components/WhatsAppSettings";
 import Inbox from "@/components/Inbox";
 import MoreFeatures from "@/components/MoreFeatures";
 import AutomationStudio from "@/components/AutomationStudio";
+import PlatformHub from "@/components/PlatformHub";
 
-type Section = "Overview" | "Inbox" | "More Features" | "Automation" | "WhatsApp" | "Settings";
-const nav: Section[] = ["Overview", "Inbox", "More Features", "Automation", "WhatsApp", "Settings"];
+type Section = "Overview" | "Inbox" | "More Features" | "Automation" | "Business" | "Platform" | "WhatsApp" | "Settings";
+const nav: Section[] = ["Overview", "Inbox", "More Features", "Automation", "Business", "Platform", "WhatsApp", "Settings"];
 const logoUrl = "https://i.ibb.co/FqhgtFj1/width-447.webp";
 
 type GeminiState = { configured: boolean; source: "dashboard" | "environment" | null; maskedKey: string | null };
@@ -48,12 +49,25 @@ export default function Home() {
     </aside>
     <section className="main">
       <header className="top"><div className="title"><div className="eyebrow">LAAWA / COMMAND CENTER</div><h1>{section}</h1><p>{section === "Overview" ? "Live system state — no demo numbers." : `Manage ${section.toLowerCase()} from LaaWa.`}</p></div><div className="status"><span className={whatsappConnected ? "dot" : "dot off"} /> WhatsApp: {whatsappConnected ? "connected" : "not connected"}</div></header>
-      {section === "Overview" && <><div className="cards">{["Conversations", "New leads", "Appointments", "AI handled"].map((label, index) => <div className="card glass" style={{ animationDelay: `${index * 70}ms` }} key={label}><div className="label">{label}</div><div className="value">0</div><div className="small muted">Open More Features for live workspace metrics</div></div>)}</div><div className="grid"><section className="panel glass"><div className="panel-head"><h2>Live activity</h2><span className="small muted">Real events only</span></div><div className="empty"><strong>No activity yet</strong><span>Connect WhatsApp to start receiving real events.</span></div></section><section className="panel glass"><div className="panel-head"><h2>Workspace</h2></div><div className="quick"><button onClick={() => setSection("Settings")}>Configure Gemini API <span>→</span></button><button onClick={() => setSection("WhatsApp")}>Connect WhatsApp <span>→</span></button><button onClick={() => setSection("Inbox")}>Open Inbox <span>→</span></button><button onClick={() => setSection("More Features")}>Open More Features <span>→</span></button><button onClick={() => setSection("Automation")}>Open Automation <span>→</span></button></div></section></div></>}
+      {section === "Overview" && <><div className="cards">{["Conversations", "New leads", "Appointments", "AI handled"].map((label, index) => <div className="card glass" style={{ animationDelay: `${index * 70}ms` }} key={label}><div className="label">{label}</div><div className="value">0</div><div className="small muted">Open More Features for live workspace metrics</div></div>)}</div><div className="grid"><section className="panel glass"><div className="panel-head"><h2>Live activity</h2><span className="small muted">Real events only</span></div><div className="empty"><strong>No activity yet</strong><span>Connect WhatsApp to start receiving real events.</span></div></section><section className="panel glass"><div className="panel-head"><h2>Workspace</h2></div><div className="quick"><button onClick={() => setSection("Settings")}>Configure Gemini API <span>→</span></button><button onClick={() => setSection("WhatsApp")}>Connect WhatsApp <span>→</span></button><button onClick={() => setSection("Inbox")}>Open Inbox <span>→</span></button><button onClick={() => setSection("More Features")}>Open More Features <span>→</span></button><button onClick={() => setSection("Automation")}>Open Automation <span>→</span></button><button onClick={() => setSection("Business")}>Open Business <span>→</span></button><button onClick={() => setSection("Platform")}>Open Platform <span>→</span></button></div></section></div></>}
       {section === "Inbox" && <Inbox />}
       {section === "WhatsApp" && <WhatsAppSettings />}
       {section === "More Features" && <MoreFeatures />}
       {section === "Automation" && <AutomationStudio />}
+      {section === "Business" && <BusinessInline />}
+      {section === "Platform" && <PlatformHub />}
       {section === "Settings" && <section className="panel glass settings-panel"><div className="panel-head"><div><div className="eyebrow">CONFIGURATION</div><h2>AI provider</h2><p className="small muted" style={{ marginTop: 6 }}>Use your own Google Gemini API key. LaaWa verifies it against the Gemini API before saving.</p></div><span className={gemini.configured ? "badge good" : "badge"}>{gemini.configured ? "Configured" : "Not configured"}</span></div><div className="settings-block"><label className="setting-label">Google Gemini API key</label>{gemini.configured && <div className="saved-key"><span>{gemini.maskedKey}</span><span className="small muted">{gemini.source === "dashboard" ? "Saved securely in this browser session" : "Environment fallback"}</span></div>}<input className="setting-input" type="password" value={geminiKey} onChange={(e) => setGeminiKey(e.target.value)} placeholder={gemini.configured ? "Enter a new key to replace the current one" : "Paste your Gemini API key"} autoComplete="off" /><div className="button-row"><button className="primary compact" onClick={saveGemini} disabled={geminiBusy || !geminiKey.trim()}>{geminiBusy ? "Checking…" : gemini.configured ? "Check & replace key" : "Check key & save"}</button>{gemini.configured && <button className="danger" onClick={removeGemini} disabled={geminiBusy}>Remove saved key</button>}</div>{geminiMessage && <div className="success">{geminiMessage}</div>}{geminiError && <div className="error">{geminiError}</div>}</div><div className="security-note"><strong>How this works</strong><span>Your key is sent only to the server, tested with a real Gemini generation request, then encrypted before being stored in an HTTP-only cookie. It is never rendered back as plaintext.</span></div></section>}
     </section>
   </main>;
+}
+
+function BusinessInline(){
+  const [ready,setReady]=useState(false);
+  useEffect(()=>{import("@/components/BusinessHub").then(()=>setReady(true))},[]);
+  return ready ? <BusinessLazy/> : <section className="panel glass"><div className="empty"><strong>Loading Business…</strong></div></section>;
+}
+function BusinessLazy(){
+  const [Component,setComponent]=useState<React.ComponentType|null>(null);
+  useEffect(()=>{import("@/components/BusinessHub").then((m)=>setComponent(()=>m.default))},[]);
+  return Component ? <Component/> : <section className="panel glass"><div className="empty"><strong>Loading Business…</strong></div></section>;
 }
