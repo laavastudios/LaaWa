@@ -1,8 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { apiError, apiSuccess, requireApiAuth } from "../../../../lib/api";
 import {
   eraseWorkspaceData,
-  exportWorkspaceData,
   getPrivacyPolicy,
   getPrivacySummary,
   privacyWorkspace,
@@ -95,27 +94,4 @@ export async function DELETE(request: NextRequest) {
   const resolved = await workspaceOrError(auth);
   if (!resolved.workspaceId) return resolved.response;
   return apiError({ status: 405, code: "CONFIRMATION_REQUIRED", message: "Use POST with action 'erase' and the exact workspace confirmation phrase.", requestId: auth.requestId, headers: { Allow: "GET, PATCH, POST" } });
-}
-
-export async function GET_EXPORT(request: NextRequest) {
-  const auth = await requireApiAuth(request, "admin");
-  if ("response" in auth) return auth.response;
-  const resolved = await workspaceOrError(auth);
-  if (!resolved.workspaceId) return resolved.response;
-  try {
-    const data = await exportWorkspaceData(resolved.workspaceId);
-    const filename = `laawa-privacy-export-${new Date().toISOString().slice(0, 10)}.json`;
-    return new NextResponse(JSON.stringify(data, null, 2), {
-      status: 200,
-      headers: {
-        "Content-Type": "application/json; charset=utf-8",
-        "Content-Disposition": `attachment; filename="${filename}"`,
-        "Cache-Control": "no-store",
-        "X-Laawa-API-Version": "v1",
-        "X-Request-Id": auth.requestId,
-      },
-    });
-  } catch (error) {
-    return apiError({ status: 503, code: "EXPORT_FAILED", message: error instanceof Error ? error.message : "Data export failed.", requestId: auth.requestId });
-  }
 }
