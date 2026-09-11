@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { apiError, apiSuccess, getRequestId, requireApiAuth } from "../../../../../lib/api";
+import { apiSuccess, getRequestId, requireApiAuth } from "../../../../../lib/api";
 import { WHATSAPP_ENGINES } from "../../../../../lib/whatsapp/engines";
 
 export const runtime = "nodejs";
@@ -16,15 +16,4 @@ export async function GET(request: NextRequest) {
     },
     { requestId },
   );
-}
-
-export async function POST(request: NextRequest) {
-  const requestId = getRequestId(request);
-  return apiError({
-    status: 405,
-    code: "METHOD_NOT_ALLOWED",
-    message: "Engine selection is managed per WhatsApp account by the runtime configuration.",
-    requestId,
-    headers: { Allow: "GET" },
-  });
 }
