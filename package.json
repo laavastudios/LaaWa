@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint .",
     "whatsapp": "node worker/whatsapp.mjs",
+    "whatsapp:manager": "node worker/multi-manager.mjs",
     "laawa": "node scripts/dev-all.mjs",
     "db:migrate": "node scripts/migrate.mjs"
   },
