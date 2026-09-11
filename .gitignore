@@ -7,3 +7,5 @@ out
 *.log
 .DS_Store
 .whatsapp-session
+.whatsapp-session-*
+.whatsapp-accounts.json
