@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { verifySession } from "../auth/login/route";
 import { isDatabaseConfigured, query, withTransaction } from "../../../lib/db";
-import { encryptWebhookSecret } from "../../../lib/webhooks";
+import { encryptWebhookSecret, emitWebhookEvent } from "../../../lib/webhooks";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -51,10 +51,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ webhook: result, secret }, { status: 201 });
     }
     if (action === "webhook-test") {
-      const { emitWebhookEvent } = await import("../../../lib/webhooks"); const hook = await query<{ id:string }>("SELECT id FROM webhooks WHERE id=$1 AND workspace_id=$2 AND enabled=true", [String(body?.id || ""), workspace]);
+      const id = String(body?.id || "").trim();
+      const hook = await query<{ id:string }>("SELECT id FROM webhooks WHERE id=$1 AND workspace_id=$2 AND enabled=true", [id, workspace]);
       if (!hook.rows[0]) return NextResponse.json({ error: "Webhook not found or disabled." }, { status: 404 });
-      await emitWebhookEvent(workspace, "webhook.test", { webhook_id: hook.rows[0].id, message: "LaaWa webhook test" });
-      return NextResponse.json({ queued: true });
+      await emitWebhookEvent(workspace, "webhook.test", { webhook_id: id, message: "LaaWa webhook test" }, id);
+      return NextResponse.json({ delivered: true });
     }
     return NextResponse.json({ error: "Unknown platform action." }, { status: 400 });
   } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "Platform action failed." }, { status: 500 }); }
