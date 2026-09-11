@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { apiError, apiSuccess, requireApiAuth } from "../../../../../../lib/api";
+import { apiError, apiSuccess, requireApiAuth } from "../../../../../lib/api";
 
 export const runtime = "nodejs";
 
