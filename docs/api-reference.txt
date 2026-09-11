@@ -1,0 +1,3 @@
+Canonical API reference: docs/api-reference.md
+Interactive guide: /developer/docs/guide
+OpenAPI contract: /api/v1/openapi.json
