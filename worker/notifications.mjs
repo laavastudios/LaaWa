@@ -16,15 +16,20 @@ async function deliver(row) {
   const prefResult = await pool.query("SELECT browser_enabled,email_enabled,email_address,minimum_severity FROM notification_preferences WHERE workspace_id=$1 LIMIT 1", [row.workspace_id]);
   const prefs = prefResult.rows[0] || { browser_enabled: true, email_enabled: false, email_address: null, minimum_severity: "warning" };
   const rank = { info: 0, warning: 1, critical: 2 };
-  if (rank[row.severity] < rank[prefs.minimum_severity]) return;
-  const ruleResult = await pool.query("SELECT channels FROM notification_rules WHERE workspace_id=$1 AND event_type=$2 LIMIT 1", [row.workspace_id, row.event_type]);
-  const channels = Array.isArray(ruleResult.rows[0]?.channels) ? ruleResult.rows[0].channels : ["browser"];
+  const eligible = rank[row.severity] >= rank[prefs.minimum_severity];
+  const ruleResult = await pool.query("SELECT channels,enabled FROM notification_rules WHERE workspace_id=$1 AND event_type=$2 LIMIT 1", [row.workspace_id, row.event_type]);
+  const rule = ruleResult.rows[0];
+  const channels = Array.isArray(rule?.channels) ? rule.channels : ["browser"];
+  if (rule?.enabled === false || !eligible) {
+    await pool.query("UPDATE notifications SET browser_sent_at=COALESCE(browser_sent_at,NOW()),email_sent_at=COALESCE(email_sent_at,NOW()),delivery_error=NULL WHERE id=$1", [row.id]);
+    return;
+  }
   let browserDone = Boolean(row.browser_sent_at);
   let emailDone = Boolean(row.email_sent_at);
   const errors = [];
 
   if (!browserDone && prefs.browser_enabled && channels.includes("browser")) {
-    if (!browserReady) browserDone = true;
+    if (!browserReady) errors.push("Browser push channel is enabled but VAPID is not configured.");
     else {
       const subs = await pool.query("SELECT id,endpoint,p256dh,auth FROM notification_push_subscriptions WHERE workspace_id=$1", [row.workspace_id]);
       browserDone = true;
@@ -39,6 +44,8 @@ async function deliver(row) {
       }
     }
     if (browserDone) await pool.query("UPDATE notifications SET browser_sent_at=NOW() WHERE id=$1", [row.id]);
+  } else if (!browserDone) {
+    await pool.query("UPDATE notifications SET browser_sent_at=NOW() WHERE id=$1", [row.id]);
   }
 
   if (!emailDone && prefs.email_enabled && prefs.email_address && channels.includes("email")) {
@@ -50,11 +57,13 @@ async function deliver(row) {
         await pool.query("UPDATE notifications SET email_sent_at=NOW() WHERE id=$1", [row.id]);
       } catch (error) { errors.push(`Email: ${error instanceof Error ? error.message : String(error)}`); }
     }
+  } else if (!emailDone) {
+    await pool.query("UPDATE notifications SET email_sent_at=NOW() WHERE id=$1", [row.id]);
   }
   if (errors.length) await pool.query("UPDATE notifications SET delivery_error=$2 WHERE id=$1", [row.id, errors.join(" | ").slice(0, 2000)]);
   else await pool.query("UPDATE notifications SET delivery_error=NULL WHERE id=$1", [row.id]);
 }
-function escapeHtml(value) { return String(value).replace(/[&<>\"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\\": "&#92;", "\"": "&quot;" })[char] || char); }
+function escapeHtml(value) { return String(value).replace(/[&<>\\"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\\": "&#92;", "\"": "&quot;" })[char] || char); }
 async function tick() {
   const result = await pool.query("SELECT id,workspace_id,event_type,severity,title,body,data,browser_sent_at,email_sent_at FROM notifications WHERE (browser_sent_at IS NULL OR email_sent_at IS NULL) AND created_at > NOW() - INTERVAL '30 days' ORDER BY created_at ASC LIMIT 25");
   for (const row of result.rows) await deliver(row);
