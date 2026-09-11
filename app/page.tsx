@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Activity, Bot, BriefcaseBusiness, ChartNoAxesCombined, ChevronRight, CircleUserRound, Database, Gauge, Inbox as InboxIcon, Layers3, MessageSquare, Network, Settings2, Sparkles, Workflow, Zap } from "lucide-react";
 import WhatsAppSettings from "@/components/WhatsAppSettings";
 import Inbox from "@/components/Inbox";
 import MoreFeatures from "@/components/MoreFeatures";
@@ -14,11 +15,17 @@ import AnalyticsHub from "@/components/AnalyticsHub";
 import ContactsHub from "@/components/ContactsHub";
 import Customer360Hub from "@/components/Customer360Hub";
 import IntelligenceHub from "@/components/IntelligenceHub";
+import "./dashboard.css";
 
 type Section = "Overview" | "Inbox" | "Contacts" | "Customer 360" | "Analytics" | "Intelligence" | "More Features" | "Automation" | "Visual Automation" | "Jobs" | "Business" | "Platform" | "AI" | "WhatsApp" | "Settings";
 const nav: Section[] = ["Overview", "Inbox", "Contacts", "Customer 360", "Analytics", "Intelligence", "More Features", "Automation", "Visual Automation", "Jobs", "Business", "Platform", "AI", "WhatsApp", "Settings"];
 const logoUrl = "https://i.ibb.co/FqhgtFj1/width-447.webp";
 type GeminiState = { configured: boolean; source: "dashboard" | "environment" | null; maskedKey: string | null };
+type Metrics = { accounts: { total: number; connected: number; reconnecting: number; error: number }; messages: { total: number; inbound: number; outbound: number; failed: number; last24h: number }; conversations: { total: number; open: number; unread: number }; broadcasts: { total: number; running: number; failed: number; completed: number; recipientsFailed: number } };
+
+const navIcons: Record<Section, React.ReactNode> = {
+  Overview: <Gauge size={16} />, Inbox: <InboxIcon size={16} />, Contacts: <CircleUserRound size={16} />, "Customer 360": <Layers3 size={16} />, Analytics: <ChartNoAxesCombined size={16} />, Intelligence: <Sparkles size={16} />, "More Features": <Zap size={16} />, Automation: <Workflow size={16} />, "Visual Automation": <Network size={16} />, Jobs: <Activity size={16} />, Business: <BriefcaseBusiness size={16} />, Platform: <Database size={16} />, AI: <Bot size={16} />, WhatsApp: <MessageSquare size={16} />, Settings: <Settings2 size={16} />,
+};
 
 export default function Home() {
   const [section, setSection] = useState<Section>("Overview");
@@ -33,106 +40,37 @@ export default function Home() {
   const [geminiMessage, setGeminiMessage] = useState("");
   const [geminiError, setGeminiError] = useState("");
   const [whatsappConnected, setWhatsappConnected] = useState(false);
+  const [metrics, setMetrics] = useState<Metrics | null>(null);
 
-  async function loadGemini() {
-    const response = await fetch("/api/settings/gemini", { cache: "no-store" });
-    if (response.ok) setGemini(await response.json());
-  }
+  async function loadGemini() { const response = await fetch("/api/settings/gemini", { cache: "no-store" }); if (response.ok) setGemini(await response.json()); }
+  async function loadWhatsAppStatus() { try { const response = await fetch("/api/whatsapp/status", { cache: "no-store" }); setWhatsappConnected(response.ok && Boolean((await response.json()).connected)); } catch { setWhatsappConnected(false); } }
+  async function loadMetrics() { try { const response = await fetch("/api/v1/metrics/snapshot", { cache: "no-store" }); if (response.ok) { const payload = await response.json(); setMetrics(payload.data ?? payload); } } catch { /* Keep the workspace usable if metrics are temporarily unavailable. */ } }
 
-  async function loadWhatsAppStatus() {
-    try {
-      const response = await fetch("/api/whatsapp/status", { cache: "no-store" });
-      setWhatsappConnected(response.ok && Boolean((await response.json()).connected));
-    } catch {
-      setWhatsappConnected(false);
-    }
-  }
+  useEffect(() => { fetch("/api/auth/me").then((response) => response.json()).then((data) => { setAuthenticated(Boolean(data.authenticated)); if (data.authenticated) { void loadGemini(); void loadWhatsAppStatus(); void loadMetrics(); } }).catch(() => setAuthenticated(false)); }, []);
+  useEffect(() => { if (!authenticated) return; const timer = window.setInterval(() => { void loadWhatsAppStatus(); void loadMetrics(); }, 15000); return () => window.clearInterval(timer); }, [authenticated]);
 
-  useEffect(() => {
-    fetch("/api/auth/me").then((response) => response.json()).then((data) => {
-      setAuthenticated(Boolean(data.authenticated));
-      if (data.authenticated) {
-        void loadGemini();
-        void loadWhatsAppStatus();
-      }
-    }).catch(() => setAuthenticated(false));
-  }, []);
-
-  useEffect(() => {
-    if (!authenticated) return;
-    const timer = window.setInterval(() => void loadWhatsAppStatus(), 4000);
-    return () => window.clearInterval(timer);
-  }, [authenticated]);
-
-  async function login(event: React.FormEvent) {
-    event.preventDefault();
-    setLoading(true);
-    setError("");
-    const response = await fetch("/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username, password }) });
-    const data = await response.json();
-    if (!response.ok) setError(data.error || "Login failed.");
-    else {
-      setAuthenticated(true);
-      void loadGemini();
-      void loadWhatsAppStatus();
-    }
-    setLoading(false);
-  }
-
-  async function logout() {
-    await fetch("/api/auth/login", { method: "DELETE" });
-    setAuthenticated(false);
-    setPassword("");
-  }
-
-  async function saveGemini() {
-    if (!geminiKey.trim()) return;
-    setGeminiBusy(true);
-    setGeminiMessage("");
-    setGeminiError("");
-    const response = await fetch("/api/settings/gemini", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ apiKey: geminiKey.trim() }) });
-    const data = await response.json();
-    if (response.ok) {
-      setGemini({ configured: true, source: "dashboard", maskedKey: data.maskedKey });
-      setGeminiKey("");
-      setGeminiMessage("✓ API key works and is securely saved.");
-    } else setGeminiError(data.error || "The Gemini API key could not be verified.");
-    setGeminiBusy(false);
-  }
-
-  async function removeGemini() {
-    setGeminiBusy(true);
-    setGeminiMessage("");
-    setGeminiError("");
-    const response = await fetch("/api/settings/gemini", { method: "DELETE" });
-    if (response.ok) {
-      setGemini({ configured: false, source: null, maskedKey: null });
-      setGeminiMessage("Gemini dashboard key removed.");
-    } else setGeminiError("Could not remove the dashboard key.");
-    setGeminiBusy(false);
-  }
+  async function login(event: React.FormEvent) { event.preventDefault(); setLoading(true); setError(""); const response = await fetch("/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username, password }) }); const data = await response.json(); if (!response.ok) setError(data.error || "Login failed."); else { setAuthenticated(true); void loadGemini(); void loadWhatsAppStatus(); void loadMetrics(); } setLoading(false); }
+  async function logout() { await fetch("/api/auth/login", { method: "DELETE" }); setAuthenticated(false); setPassword(""); }
+  async function saveGemini() { if (!geminiKey.trim()) return; setGeminiBusy(true); setGeminiMessage(""); setGeminiError(""); const response = await fetch("/api/settings/gemini", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ apiKey: geminiKey.trim() }) }); const data = await response.json(); if (response.ok) { setGemini({ configured: true, source: "dashboard", maskedKey: data.maskedKey }); setGeminiKey(""); setGeminiMessage("API key verified and securely saved."); } else setGeminiError(data.error || "The Gemini API key could not be verified."); setGeminiBusy(false); }
+  async function removeGemini() { setGeminiBusy(true); setGeminiMessage(""); setGeminiError(""); const response = await fetch("/api/settings/gemini", { method: "DELETE" }); if (response.ok) { setGemini({ configured: false, source: null, maskedKey: null }); setGeminiMessage("Gemini dashboard key removed."); } else setGeminiError("Could not remove the dashboard key."); setGeminiBusy(false); }
 
   if (authenticated === null) return <main className="login laawa-shell"><div className="muted loading-state">Loading LaaWa…</div></main>;
   if (!authenticated) return <main className="login laawa-shell grid-bg"><section className="login-card glass"><div className="brand"><div className="logo"><img src={logoUrl} alt="LaaWa" /></div><span>LaaWa</span></div><p className="muted" style={{ marginTop: 10 }}>AI business command center</p><form onSubmit={login}><div className="field"><label>Username</label><input autoComplete="username" value={username} onChange={(event) => setUsername(event.target.value)} placeholder="Owner username" /></div><div className="field"><label>Password</label><input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Password" /></div>{error && <div className="error">{error}</div>}<button className="primary" disabled={loading}>{loading ? "Signing in…" : "Enter LaaWa"}</button></form></section></main>;
 
-  return <main className="app laawa-shell"><aside className="sidebar"><div className="brand"><div className="logo"><img src={logoUrl} alt="LaaWa" /></div><span>LaaWa</span></div><div className="nav">{nav.map((item) => <button key={item} className={section === item ? "active" : ""} onClick={() => setSection(item)}>{item}</button>)}</div><div style={{ marginTop: "auto" }}><div className="glass engine-card"><div className="small muted">AI ENGINE</div><div className="engine-status"><span className={gemini.configured ? "dot" : "dot off"} /> {gemini.configured ? "Gemini configured" : "Gemini not configured"}</div><div className="small muted">{gemini.source === "dashboard" ? "Dashboard key" : gemini.source === "environment" ? "Environment key" : "Add a key in Settings"}</div></div><button onClick={logout} className="signout">Sign out</button></div></aside><section className="main"><header className="top"><div className="title"><div className="eyebrow">LAAWA / COMMAND CENTER</div><h1>{section}</h1><p>{section === "Overview" ? "Live system state — no demo numbers." : `Manage ${section.toLowerCase()} from LaaWa.`}</p></div><div className="status"><span className={whatsappConnected ? "dot" : "dot off"} /> WhatsApp: {whatsappConnected ? "connected" : "not connected"}</div></header>
+  const messageCount = metrics?.messages.last24h ?? 0;
+  const conversationCount = metrics?.conversations.total ?? 0;
+  const openCount = metrics?.conversations.open ?? 0;
+  const accountCount = metrics?.accounts.total ?? 0;
+  const quickActions: Array<[Section, string, React.ReactNode]> = [["Inbox", "Open live inbox", <InboxIcon size={15} key="i" />], ["Contacts", "Manage contacts", <CircleUserRound size={15} key="c" />], ["AI", "Open AI Studio", <Bot size={15} key="a" />], ["Visual Automation", "Build automation", <Workflow size={15} key="v" />], ["WhatsApp", "Connect WhatsApp", <MessageSquare size={15} key="w" />], ["Analytics", "View analytics", <ChartNoAxesCombined size={15} key="n" />]];
 
-  {section === "Overview" && <><div className="cards">{["Conversations", "New leads", "Appointments", "AI handled"].map((label, index) => <div className="card glass" style={{ animationDelay: `${index * 70}ms` }} key={label}><div className="label">{label}</div><div className="value">0</div><div className="small muted">Open Analytics for live workspace metrics</div></div>)}</div><div className="grid"><section className="panel glass"><div className="panel-head"><h2>Live activity</h2><span className="small muted">Real events only</span></div><div className="empty"><strong>No activity yet</strong><span>Connect WhatsApp to start receiving real events.</span></div></section><section className="panel glass"><div className="panel-head"><h2>Workspace</h2></div><div className="quick"><button onClick={() => setSection("Contacts")}>Open Contacts <span>→</span></button><button onClick={() => setSection("Customer 360")}>Open Customer 360 <span>→</span></button><button onClick={() => setSection("Analytics")}>Open Analytics <span>→</span></button><button onClick={() => setSection("Intelligence")}>Open Intelligence <span>→</span></button><button onClick={() => setSection("Settings")}>Configure Gemini API <span>→</span></button><button onClick={() => setSection("AI")}>Open AI Studio <span>→</span></button><button onClick={() => setSection("Jobs")}>Open Scheduling <span>→</span></button><button onClick={() => setSection("Visual Automation")}>Open Visual Automation <span>→</span></button><button onClick={() => setSection("WhatsApp")}>Connect WhatsApp <span>→</span></button><button onClick={() => setSection("Inbox")}>Open Inbox <span>→</span></button><button onClick={() => setSection("More Features")}>Open More Features <span>→</span></button><button onClick={() => setSection("Automation")}>Open Automation <span>→</span></button><button onClick={() => setSection("Business")}>Open Business <span>→</span></button><button onClick={() => setSection("Platform")}>Open Platform <span>→</span></button></div></section></div></>}
-
-  {section === "Inbox" && <Inbox />}
-  {section === "Contacts" && <ContactsHub />}
-  {section === "Customer 360" && <Customer360Hub />}
-  {section === "Analytics" && <AnalyticsHub />}
-  {section === "Intelligence" && <IntelligenceHub />}
-  {section === "WhatsApp" && <WhatsAppSettings />}
-  {section === "More Features" && <MoreFeatures />}
-  {section === "Automation" && <AutomationStudio />}
-  {section === "Visual Automation" && <VisualAutomationHub />}
-  {section === "Jobs" && <JobsHub />}
-  {section === "Business" && <BusinessHub />}
-  {section === "Platform" && <PlatformHub />}
-  {section === "AI" && <AIStudio />}
-
-  {section === "Settings" && <section className="panel glass settings-panel"><div className="panel-head"><div><div className="eyebrow">CONFIGURATION</div><h2>AI provider</h2><p className="small muted" style={{ marginTop: 6 }}>Use your own Google Gemini API key. LaaWa verifies it against the Gemini API before saving.</p></div><span className={gemini.configured ? "badge good" : "badge"}>{gemini.configured ? "Configured" : "Not configured"}</span></div><div className="settings-block"><label className="setting-label">Google Gemini API key</label>{gemini.configured && <div className="saved-key"><span>{gemini.maskedKey}</span><span className="small muted">{gemini.source === "dashboard" ? "Saved securely in this browser session" : "Environment fallback"}</span></div>}<input className="setting-input" type="password" value={geminiKey} onChange={(event) => setGeminiKey(event.target.value)} placeholder={gemini.configured ? "Enter a new key to replace the current one" : "Paste your Gemini API key"} autoComplete="off" /><div className="button-row"><button className="primary compact" onClick={saveGemini} disabled={geminiBusy || !geminiKey.trim()}>{geminiBusy ? "Checking…" : gemini.configured ? "Check & replace key" : "Check key & save"}</button>{gemini.configured && <button className="danger" onClick={removeGemini} disabled={geminiBusy}>Remove saved key</button>}</div>{geminiMessage && <div className="success">{geminiMessage}</div>}{geminiError && <div className="error">{geminiError}</div>}</div><div className="security-note"><strong>How this works</strong><span>Your key is sent only to the server, tested with a real Gemini generation request, then encrypted before being stored in an HTTP-only cookie. It is never rendered back as plaintext.</span></div></section>}
-  </section></main>;
+  return <main className="app laawa-shell premium-dashboard">
+    <aside className="sidebar"><div className="brand"><div className="logo"><img src={logoUrl} alt="LaaWa" /></div><span>LaaWa</span></div><div className="nav"><div className="nav-section">Command</div>{nav.slice(0, 6).map((item) => <button key={item} className={section === item ? "active" : ""} onClick={() => setSection(item)}><span className="nav-icon">{navIcons[item]}</span>{item}</button>)}<div className="nav-section">Build</div>{nav.slice(6, 13).map((item) => <button key={item} className={section === item ? "active" : ""} onClick={() => setSection(item)}><span className="nav-icon">{navIcons[item]}</span>{item}</button>)}<div className="nav-section">Connect</div>{nav.slice(13).map((item) => <button key={item} className={section === item ? "active" : ""} onClick={() => setSection(item)}><span className="nav-icon">{navIcons[item]}</span>{item}</button>)}</div><div style={{ marginTop: "auto" }}><div className="glass engine-card"><div className="small muted">AI ENGINE</div><div className="engine-status"><span className={gemini.configured ? "dot" : "dot off"} /> {gemini.configured ? "Gemini configured" : "Gemini not configured"}</div><div className="small muted">{gemini.source === "dashboard" ? "Dashboard key" : gemini.source === "environment" ? "Environment key" : "Add a key in Settings"}</div></div><button onClick={logout} className="signout">Sign out</button></div></aside>
+    <section className="main"><header className="top"><div className="title"><div className="eyebrow">LAAWA / COMMAND CENTER</div><h1>{section}</h1><p>{section === "Overview" ? "Your live business control surface." : `Manage ${section.toLowerCase()} from LaaWa.`}</p></div><div className="status"><span className={whatsappConnected ? "dot" : "dot off"} /> WhatsApp · {whatsappConnected ? "Connected" : "Not connected"}</div></header>
+      {section === "Overview" && <><section className="command-hero"><div className="hero-content"><div><div className="hero-kicker"><span className="live-ring" /> Live workspace</div><h2 className="hero-title">Everything important, one command center.</h2><p className="hero-copy">Monitor conversations, automation, AI, WhatsApp and business operations from a single responsive workspace. Metrics are pulled from your live workspace when available.</p></div><div className="hero-actions"><button className="hero-action primary-action" onClick={() => setSection("Inbox")}><InboxIcon size={14} /> Open Inbox</button><button className="hero-action" onClick={() => setSection("WhatsApp")}><MessageSquare size={14} /> WhatsApp</button></div></div></section>
+        <div className="metric-grid">{[["Conversations", conversationCount, <MessageSquare size={15} key="m" />, "workspace total"], ["Open conversations", openCount, <Activity size={15} key="o" />, "currently open"], ["Messages · 24h", messageCount, <Zap size={15} key="z" />, "inbound + outbound"], ["WhatsApp accounts", accountCount, <Network size={15} key="q" />, "configured accounts"]].map(([label, value, icon, sub], index) => <div className="metric-card" style={{ animationDelay: `${index * 70}ms` }} key={String(label)}><div className="metric-top"><span>{label}</span><span className="metric-icon">{icon}</span></div><div className="metric-value">{value as number}</div><div className="metric-sub">{sub}</div></div>)}</div>
+        <div className="dashboard-grid"><section className="panel glass dashboard-panel"><div className="panel-head"><div><h2>Live activity</h2><div className="small muted">Realtime workspace signal</div></div><span className="badge good">{whatsappConnected ? "Online" : "Waiting"}</span></div><div className="activity-stage"><div className="activity-orbit" /><div className="activity-core"><Activity size={22} /></div><div className="activity-copy"><strong>{whatsappConnected ? "WhatsApp is connected" : "Connect WhatsApp to go live"}</strong><span>{whatsappConnected ? "Listening for new workspace events" : "No demo activity is shown"}</span></div></div><div className="system-strip"><div className="system-pill"><span className={whatsappConnected ? "dot" : "dot off"} /><div><strong>WhatsApp</strong><span>{whatsappConnected ? "Connected" : "Offline"}</span></div></div><div className="system-pill"><span className={gemini.configured ? "dot" : "dot off"} /><div><strong>AI engine</strong><span>{gemini.configured ? "Configured" : "Not configured"}</span></div></div><div className="system-pill"><span className="dot" /><div><strong>Dashboard</strong><span>Operational</span></div></div></div></section><section className="panel glass dashboard-panel"><div className="panel-head"><div><h2>Quick actions</h2><div className="small muted">Jump directly into your workspace</div></div><Sparkles size={16} color="#a78bfa" /></div><div className="quick-grid">{quickActions.map(([target, label, icon]) => <button className="quick-action" key={label} onClick={() => setSection(target)}><span style={{ display: "flex", alignItems: "center", gap: 9 }}>{icon}{label}</span><span className="arrow"><ChevronRight size={15} /></span></button>)}</div></section></div></>}
+      {section === "Inbox" && <Inbox />}{section === "Contacts" && <ContactsHub />}{section === "Customer 360" && <Customer360Hub />}{section === "Analytics" && <AnalyticsHub />}{section === "Intelligence" && <IntelligenceHub />}{section === "WhatsApp" && <WhatsAppSettings />}{section === "More Features" && <MoreFeatures />}{section === "Automation" && <AutomationStudio />}{section === "Visual Automation" && <VisualAutomationHub />}{section === "Jobs" && <JobsHub />}{section === "Business" && <BusinessHub />}{section === "Platform" && <PlatformHub />}{section === "AI" && <AIStudio />}
+      {section === "Settings" && <section className="panel glass settings-panel"><div className="panel-head"><div><div className="eyebrow">CONFIGURATION</div><h2>AI provider</h2><p className="small muted" style={{ marginTop: 6 }}>Use your own Google Gemini API key. LaaWa verifies it against the Gemini API before saving.</p></div><span className={gemini.configured ? "badge good" : "badge"}>{gemini.configured ? "Configured" : "Not configured"}</span></div><div className="settings-block"><label className="setting-label">Google Gemini API key</label>{gemini.configured && <div className="saved-key"><span>{gemini.maskedKey}</span><span className="small muted">{gemini.source === "dashboard" ? "Saved securely in this browser session" : "Environment fallback"}</span></div>}<input className="setting-input" type="password" value={geminiKey} onChange={(event) => setGeminiKey(event.target.value)} placeholder={gemini.configured ? "Enter a new key to replace the current one" : "Paste your Gemini API key"} autoComplete="off" /><div className="button-row"><button className="primary compact" onClick={saveGemini} disabled={geminiBusy || !geminiKey.trim()}>{geminiBusy ? "Checking…" : gemini.configured ? "Check & replace key" : "Check key & save"}</button>{gemini.configured && <button className="danger" onClick={removeGemini} disabled={geminiBusy}>Remove saved key</button>}</div>{geminiMessage && <div className="success">{geminiMessage}</div>}{geminiError && <div className="error">{geminiError}</div>}</div><div className="security-note"><strong>How this works</strong><span>Your key is sent only to the server, tested with a real Gemini generation request, then encrypted before being stored in an HTTP-only cookie. It is never rendered back as plaintext.</span></div></section>}
+    </section>
+  </main>;
 }
