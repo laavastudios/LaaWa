@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Activity, Bot, BriefcaseBusiness, CheckCircle2, Clock3, MessageSquare, Radio, RefreshCw, Send, Users, XCircle } from "lucide-react";
 
 type Data={configured?:boolean;days:number;metrics?:any;daily?:any[];events?:any[]};
