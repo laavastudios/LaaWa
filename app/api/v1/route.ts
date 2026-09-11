@@ -7,9 +7,9 @@ export async function GET(request: NextRequest) {
   const requestId = getRequestId(request);
   return apiSuccess({
     name: "LaaWa API", version: "v1", status: "ready", documentation: "/developer/docs", openapi: "/api/v1/openapi.json",
-    capabilities: { authentication: "session + api-key", apiKeys: true, messaging: true, media: true, locations: true, contacts: true, conversations: true, webhooks: true, realtime: true, multiEngine: true, integrations: true, notifications: true, observability: true, openapi: true },
+    capabilities: { authentication: "session + api-key", apiKeys: true, messaging: true, media: true, locations: true, contacts: true, conversations: true, webhooks: true, realtime: true, multiEngine: true, integrations: true, notifications: true, observability: true, privacy: true, openapi: true },
     integrations: ["chatwoot", "wordpress", "webhook"],
-    endpoints: { messages: "/api/v1/messages", conversations: "/api/v1/conversations", contacts: "/api/v1/contacts", events: "/api/v1/events?accountId={accountId}", engines: "/api/v1/engines", keys: "/api/v1/keys", integrations: "/api/v1/integrations", notifications: "/api/v1/notifications", metrics: "/api/v1/metrics", metricsSnapshot: "/api/v1/metrics/snapshot", openapi: "/api/v1/openapi.json" },
+    endpoints: { messages: "/api/v1/messages", conversations: "/api/v1/conversations", contacts: "/api/v1/contacts", events: "/api/v1/events?accountId={accountId}", engines: "/api/v1/engines", keys: "/api/v1/keys", integrations: "/api/v1/integrations", notifications: "/api/v1/notifications", metrics: "/api/v1/metrics", metricsSnapshot: "/api/v1/metrics/snapshot", privacy: "/api/v1/privacy", privacyExport: "/api/v1/privacy/export", openapi: "/api/v1/openapi.json" },
   }, { requestId });
 }
 
