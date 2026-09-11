@@ -11,6 +11,7 @@
     "whatsapp:manager": "node worker/multi-manager.mjs",
     "jobs": "node worker/durable-jobs.mjs",
     "webhooks": "node worker/webhook-deliveries.mjs",
+    "notifications": "node worker/notifications.mjs",
     "laawa": "node scripts/dev-all.mjs",
     "db:migrate": "node scripts/migrate.mjs"
   },
@@ -18,19 +19,21 @@
     "@google/genai": "latest",
     "lucide-react": "latest",
     "next": "16.3.4",
+    "nodemailer": "latest",
     "pg": "latest",
     "qrcode": "latest",
     "qrcode-terminal": "latest",
     "react": "19.2.0",
     "react-dom": "19.2.0",
+    "web-push": "latest",
     "whatsapp-web.js": "1.34.7"
   },
   "devDependencies": {
     "@types/node": "latest",
+    "@types/nodemailer": "latest",
     "@types/pg": "latest",
     "@types/qrcode": "latest",
-    "@types/react": "latest",
-    "@types/react-dom": "latest",
+    "@types/web-push": "latest",
     "eslint": "latest",
     "eslint-config-next": "16.3.4",
     "typescript": "latest"

@@ -7,9 +7,9 @@ export async function GET(request: NextRequest) {
   const requestId = getRequestId(request);
   return apiSuccess({
     name: "LaaWa API", version: "v1", status: "ready", documentation: "/developer/docs", openapi: "/api/v1/openapi.json",
-    capabilities: { authentication: "session + api-key", apiKeys: true, messaging: true, media: true, locations: true, contacts: true, conversations: true, webhooks: true, realtime: true, multiEngine: true, integrations: true, openapi: true },
+    capabilities: { authentication: "session + api-key", apiKeys: true, messaging: true, media: true, locations: true, contacts: true, conversations: true, webhooks: true, realtime: true, multiEngine: true, integrations: true, notifications: true, openapi: true },
     integrations: ["chatwoot", "wordpress", "webhook"],
-    endpoints: { messages: "/api/v1/messages", conversations: "/api/v1/conversations", contacts: "/api/v1/contacts", events: "/api/v1/events?accountId={accountId}", engines: "/api/v1/engines", keys: "/api/v1/keys", integrations: "/api/v1/integrations", openapi: "/api/v1/openapi.json" },
+    endpoints: { messages: "/api/v1/messages", conversations: "/api/v1/conversations", contacts: "/api/v1/contacts", events: "/api/v1/events?accountId={accountId}", engines: "/api/v1/engines", keys: "/api/v1/keys", integrations: "/api/v1/integrations", notifications: "/api/v1/notifications", notificationPreferences: "/api/v1/notifications/preferences", notificationPush: "/api/v1/notifications/push", openapi: "/api/v1/openapi.json" },
   }, { requestId });
 }
 
