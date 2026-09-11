@@ -2,7 +2,10 @@ import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import { spawn } from "node:child_process";
+import pg from "pg";
+import { notifyWorkspace, workspaceForAccount } from "./notification-utils.mjs";
 
+const { Pool } = pg;
 const PORT = Number(process.env.WHATSAPP_MANAGER_PORT || 3020);
 const HOST = process.env.WHATSAPP_MANAGER_HOST || "127.0.0.1";
 const SECRET = process.env.WHATSAPP_WORKER_SECRET || "";
@@ -15,6 +18,7 @@ const MAX_RESTARTS = 5;
 const RESTART_WINDOW_MS = 5 * 60 * 1000;
 const BACKOFF_MS = 1500;
 const STABLE_RUNTIME_MS = 60 * 1000;
+const pool = process.env.DATABASE_URL ? new Pool({ connectionString: process.env.DATABASE_URL, max: 2, connectionTimeoutMillis: 5000, ssl: process.env.DATABASE_URL.includes("localhost") || process.env.DATABASE_URL.includes("127.0.0.1") ? undefined : { rejectUnauthorized: false } }) : null;
 let accounts = loadAccounts();
 const children = new Map();
 const restartState = new Map();
@@ -27,18 +31,21 @@ function authorized(req) { return !SECRET || req.headers.authorization === `Bear
 function json(res, status, body) { res.writeHead(status, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" }); res.end(JSON.stringify(body)); }
 function emit(type, payload) { const packet = `event: ${type}\ndata: ${JSON.stringify(payload)}\n\n`; for (const res of subscribers) { try { res.write(packet); } catch { subscribers.delete(res); } } }
 function accountFor(id) { return accounts.find((account) => account.id === id); }
+async function notifyAccount(account, status, message, data = {}) { if (!pool) return; const workspaceId = await workspaceForAccount(pool, account.id); await notifyWorkspace(pool, workspaceId, "whatsapp.connection", "critical", "WhatsApp connection alert", `${account.name || account.id}: ${message}`, { accountId: account.id, status, ...data }); }
 function childEnv(account) { return { ...process.env, WHATSAPP_WORKER_PORT: String(account.port), WHATSAPP_WORKER_HOST: "127.0.0.1", WHATSAPP_AUTH_PATH: account.authPath, WHATSAPP_ACCOUNT_SESSION_KEY: account.id }; }
 function start(account, automatic = false) {
   if (children.has(account.id)) return;
   const child = spawn(process.execPath, [WORKER_FILE], { env: childEnv(account), stdio: "inherit", windowsHide: false });
   children.set(account.id, child);
   const startedAt = Date.now();
-  child.on("error", (error) => { console.error(`[whatsapp:${account.id}] ${error.message}`); emit("account", { id: account.id, status: "error", error: error.message }); });
+  child.on("error", (error) => { console.error(`[whatsapp:${account.id}] ${error.message}`); emit("account", { id: account.id, status: "error", error: error.message }); void notifyAccount(account, "error", error.message); });
   child.on("exit", (code, signal) => {
     children.delete(account.id);
     const intentional = intentionalStops.delete(child);
     if (code === 0 && Date.now() - startedAt >= STABLE_RUNTIME_MS) restartState.delete(account.id);
-    emit("account", { id: account.id, status: code === 0 || intentional ? "stopped" : "error", code, signal });
+    const status = code === 0 || intentional ? "stopped" : "error";
+    emit("account", { id: account.id, status, code, signal });
+    if (!intentional && code !== 0) void notifyAccount(account, "error", `Worker exited unexpectedly (code ${code ?? "unknown"}${signal ? `, signal ${signal}` : ""}).`);
     if (!intentional && code !== 0 && accounts.some((item) => item.id === account.id)) scheduleRestart(account);
   });
   emit("account", { id: account.id, status: automatic ? "restarting" : "starting" });
@@ -49,7 +56,7 @@ function scheduleRestart(account) {
   if (existing?.timer) return;
   const state = existing || { startedAt: now, attempts: 0, timer: null };
   if (now - state.startedAt > RESTART_WINDOW_MS) { state.startedAt = now; state.attempts = 0; }
-  if (state.attempts >= MAX_RESTARTS) { emit("account", { id: account.id, status: "error", error: "Automatic restart limit reached; manual restart required." }); return; }
+  if (state.attempts >= MAX_RESTARTS) { emit("account", { id: account.id, status: "error", error: "Automatic restart limit reached; manual restart required." }); void notifyAccount(account, "error", "Automatic restart limit reached; manual restart required."); return; }
   state.attempts += 1;
   state.timer = setTimeout(() => { state.timer = null; if (accounts.some((item) => item.id === account.id) && !children.has(account.id)) start(account, true); }, Math.min(30000, BACKOFF_MS * 2 ** (state.attempts - 1)));
   restartState.set(account.id, state);
@@ -94,5 +101,5 @@ const server = http.createServer(async (req, res) => {
   return json(res, 404, { error: "Not found." });
 });
 server.listen(PORT, HOST, () => console.log(`[laawa] Multi-WhatsApp manager listening on http://${HOST}:${PORT} (${accounts.length} account${accounts.length === 1 ? "" : "s"})`));
-function shutdown() { for (const account of accounts) stop(account); try { server.close(); } catch {} process.exit(0); }
+async function shutdown() { for (const account of accounts) stop(account); try { server.close(); } catch {} await pool?.end().catch(() => {}); process.exit(0); }
 process.on("SIGINT", shutdown); process.on("SIGTERM", shutdown);
