@@ -1,36 +1,9 @@
 import { existsSync } from "node:fs";
 import { spawn } from "node:child_process";
-
-if (typeof process.loadEnvFile === "function") {
-  if (existsSync(".env")) process.loadEnvFile(".env");
-  if (existsSync(".env.local")) process.loadEnvFile(".env.local");
-}
-
-const npm = process.platform === "win32" ? "npm.cmd" : "npm";
-const children = [];
-function start(script) {
-  const child = spawn(npm, ["run", script], { stdio: "inherit", windowsHide: false, shell: process.platform === "win32" });
-  children.push(child);
-  child.on("error", (error) => { console.error(`[laawa] Failed to start ${script}:`, error.message); shutdown(1); });
-  child.on("exit", (code, signal) => { if (code && code !== 0) shutdown(code); else if (signal) shutdown(1); });
-  return child;
-}
-function runMigration() {
-  return new Promise((resolve, reject) => {
-    if (!process.env.DATABASE_URL) { console.log("[laawa] DATABASE_URL is not configured; skipping database migration."); resolve(); return; }
-    console.log("[laawa] Checking database migrations...");
-    const child = spawn(npm, ["run", "db:migrate"], { stdio: "inherit", windowsHide: false, shell: process.platform === "win32" });
-    child.on("error", reject); child.on("exit", (code, signal) => code === 0 ? resolve() : reject(new Error(`Database migration exited with ${signal || `code ${code}`}.`)));
-  });
-}
-function shutdown(code = 0) { for (const child of children) { if (!child.killed) { try { child.kill(); } catch {} } } setTimeout(() => process.exit(code), 50).unref(); }
-
-try {
-  await runMigration();
-  console.log("[laawa] Starting Multi-WhatsApp manager + Next.js...");
-  start("whatsapp:manager");
-  start("dev");
-} catch (error) { console.error("[laawa] Startup migration failed:", error instanceof Error ? error.message : String(error)); shutdown(1); }
-process.on("SIGINT", () => shutdown(0));
-process.on("SIGTERM", () => shutdown(0));
-process.on("exit", () => { for (const child of children) { try { child.kill(); } catch {} } });
+if(typeof process.loadEnvFile==="function"){if(existsSync(".env"))process.loadEnvFile(".env");if(existsSync(".env.local"))process.loadEnvFile(".env.local");}
+const npm=process.platform==="win32"?"npm.cmd":"npm";const children=[];
+function start(script){const child=spawn(npm,["run",script],{stdio:"inherit",windowsHide:false,shell:process.platform==="win32"});children.push(child);child.on("error",e=>{console.error(`[laawa] Failed to start ${script}:`,e.message);shutdown(1)});child.on("exit",(code,signal)=>{if(code&&code!==0)shutdown(code);else if(signal)shutdown(1)});return child}
+function runMigration(){return new Promise((resolve,reject)=>{if(!process.env.DATABASE_URL){console.log("[laawa] DATABASE_URL is not configured; skipping database migration.");resolve();return}console.log("[laawa] Checking database migrations...");const child=spawn(npm,["run","db:migrate"],{stdio:"inherit",windowsHide:false,shell:process.platform==="win32"});child.on("error",reject);child.on("exit",(code,signal)=>code===0?resolve():reject(new Error(`Database migration exited with ${signal||`code ${code}`}.`)))})}
+function shutdown(code=0){for(const child of children){if(!child.killed){try{child.kill()}catch{}}}setTimeout(()=>process.exit(code),50).unref()}
+try{await runMigration();console.log("[laawa] Starting Multi-WhatsApp manager + Durable Jobs + Next.js...");start("whatsapp:manager");if(process.env.DATABASE_URL)start("jobs");else console.log("[laawa] Durable Jobs worker requires DATABASE_URL; skipped.");start("dev")}catch(error){console.error("[laawa] Startup migration failed:",error instanceof Error?error.message:String(error));shutdown(1)}
+process.on("SIGINT",()=>shutdown(0));process.on("SIGTERM",()=>shutdown(0));process.on("exit",()=>{for(const child of children){try{child.kill()}catch{}}});
