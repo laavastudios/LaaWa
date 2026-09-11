@@ -11,8 +11,8 @@ export async function GET(request: NextRequest) {
       version: "v1",
       status: "ready",
       capabilities: {
-        authentication: "session",
-        apiKeys: "coming-soon",
+        authentication: "session + api-key",
+        apiKeys: true,
         webhooks: true,
         realtime: "coming-soon",
       },
