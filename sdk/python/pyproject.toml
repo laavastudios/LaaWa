@@ -1,0 +1,9 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "laawa-sdk"
+version = "0.1.0"
+description = "Typed client for the LaaWa v1 API"
+requires-python = ">=3.9"
