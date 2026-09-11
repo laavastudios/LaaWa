@@ -54,8 +54,8 @@ export async function POST(request: Request) {
       const id = String(body?.id || "").trim();
       const hook = await query<{ id:string }>("SELECT id FROM webhooks WHERE id=$1 AND workspace_id=$2 AND enabled=true", [id, workspace]);
       if (!hook.rows[0]) return NextResponse.json({ error: "Webhook not found or disabled." }, { status: 404 });
-      await emitWebhookEvent(workspace, "webhook.test", { webhook_id: id, message: "LaaWa webhook test" }, id);
-      return NextResponse.json({ delivered: true });
+      const result = await emitWebhookEvent(workspace, "webhook.test", { webhook_id: id, message: "LaaWa webhook test" }, id);
+      return NextResponse.json(result, { status: result.failed ? 502 : 200 });
     }
     return NextResponse.json({ error: "Unknown platform action." }, { status: 400 });
   } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "Platform action failed." }, { status: 500 }); }
@@ -67,7 +67,7 @@ export async function PATCH(request: Request) {
   try {
     const body = await request.json(); const workspace = await workspaceId(); const id = String(body?.id || "").trim(); const resource = String(body?.resource || "");
     if (!workspace || !id) return NextResponse.json({ error: "Resource id is required." }, { status: 400 });
-    if (resource === "api-key") { const result = await query(`UPDATE api_keys SET revoked_at = NOW() WHERE id=$1 AND workspace_id=$2 AND revoked_at IS NULL RETURNING id`, [id, workspace]); if (!result.rows[0]) return NextResponse.json({ error: "API key not found or already revoked." }, { status: 404 }); await query(`INSERT INTO audit_logs (workspace_id,action,resource_type,resource_id) VALUES ($1,'api_key.revoked','api_key',$2)`, [workspace, id]); return NextResponse.json({ updated: true }); }
+    if (resource === "api-key") { const result = await query(`UPDATE api_keys SET revoked_at = NOW() WHERE id=$1 AND workspace_id=$2 AND revoked_at IS NULL RETURNING id`, [id, workspace]); if (!result.rows[0]) return NextResponse.json({ error: "API key not found or already revoked." }, { status: 404 }); await query(`INSERT INTO audit_logs (workspace_id, action, resource_type, resource_id) VALUES ($1,'api_key.revoked','api_key',$2)`, [workspace, id]); return NextResponse.json({ updated: true }); }
     if (resource === "webhook") { const enabled = Boolean(body?.enabled); const result = await query(`UPDATE webhooks SET enabled=$1, updated_at=NOW() WHERE id=$2 AND workspace_id=$3 RETURNING id,enabled`, [enabled, id, workspace]); if (!result.rows[0]) return NextResponse.json({ error: "Webhook not found." }, { status: 404 }); await query(`INSERT INTO audit_logs (workspace_id,action,resource_type,resource_id,metadata) VALUES ($1,'webhook.updated','webhook',$2,$3::jsonb)`, [workspace, id, JSON.stringify({ enabled })]); return NextResponse.json({ updated: true, webhook: result.rows[0] }); }
     return NextResponse.json({ error: "Unknown platform resource." }, { status: 400 });
   } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "Platform update failed." }, { status: 500 }); }
