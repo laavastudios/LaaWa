@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Check, Copy, KeyRound, Plus, Shield, Sparkles, Trash2, X } from "lucide-react";
+import { Check, Copy, KeyRound, Layers3, Plus, Shield, Sparkles, Trash2, X } from "lucide-react";
 import "../developer.css";
 
 type KeyRecord = {
@@ -62,12 +63,7 @@ export default function DeveloperPage() {
       const response = await fetch("/api/v1/keys", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: form.name.trim(),
-          scopes: form.scopes,
-          expiresAt: form.expiresAt || null,
-          whatsappAccountIds: form.accountIds.split(",").map((value) => value.trim()).filter(Boolean),
-        }),
+        body: JSON.stringify({ name: form.name.trim(), scopes: form.scopes, expiresAt: form.expiresAt || null, whatsappAccountIds: form.accountIds.split(",").map((value) => value.trim()).filter(Boolean) }),
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body?.error?.message || "Unable to create API key.");
@@ -117,6 +113,7 @@ export default function DeveloperPage() {
         <div className="developer-badge"><Shield size={15} /> Self-hosted security</div>
       </section>
 
+      <div className="developer-quicknav"><Link href="/developer/docs">API Docs</Link><Link className="active" href="/developer/engines"><Layers3 size={14} /> Engine Control Center</Link></div>
       {error && <div className="developer-error">{error}</div>}
 
       <section className="developer-grid">
@@ -124,9 +121,7 @@ export default function DeveloperPage() {
           <div className="developer-card-title"><span className="developer-icon"><KeyRound size={19} /></span><div><h2>Create credential</h2><p>The secret is shown only once.</p></div></div>
           <label>Name<input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Production integration" maxLength={80} /></label>
           <div className="scope-title">Permissions</div>
-          <div className="scope-grid">
-            {["read", "write", "admin"].map((scope) => <button key={scope} type="button" className={form.scopes.includes(scope) ? "scope active" : "scope"} onClick={() => toggleScope(scope)}><span>{form.scopes.includes(scope) ? <Check size={14} /> : null}</span>{scope}</button>)}
-          </div>
+          <div className="scope-grid">{["read", "write", "admin"].map((scope) => <button key={scope} type="button" className={form.scopes.includes(scope) ? "scope active" : "scope"} onClick={() => toggleScope(scope)}><span>{form.scopes.includes(scope) ? <Check size={14} /> : null}</span>{scope}</button>)}</div>
           <label>Expiration <span className="optional">optional</span><input type="datetime-local" value={form.expiresAt} onChange={(e) => setForm({ ...form, expiresAt: e.target.value })} /></label>
           <label>WhatsApp account restrictions <span className="optional">optional</span><input value={form.accountIds} onChange={(e) => setForm({ ...form, accountIds: e.target.value })} placeholder="Account UUIDs, comma-separated" /></label>
           <button className="developer-primary" disabled={busy || !form.name.trim() || !form.scopes.length} onClick={createKey}><Plus size={17} /> {busy ? "Creating…" : "Create API key"}</button>

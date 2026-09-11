@@ -4,7 +4,7 @@ export const runtime = "nodejs";
 
 const spec = {
   openapi: "3.0.3",
-  info: { title: "LaaWa API", version: "1.0.0", description: "Versioned API for messaging, conversations, contacts, API keys, and realtime events." },
+  info: { title: "LaaWa API", version: "1.0.0", description: "Versioned API for messaging, conversations, contacts, API keys, realtime events, and multi-engine runtimes." },
   servers: [{ url: "/api/v1", description: "Current deployment" }],
   security: [{ bearerAuth: [] }],
   components: { securitySchemes: { bearerAuth: { type: "http", scheme: "bearer" } } },
@@ -12,6 +12,7 @@ const spec = {
     "/": { get: { security: [], responses: { "200": { description: "API capabilities" } } } },
     "/health": { get: { security: [], responses: { "200": { description: "Healthy" }, "503": { description: "Dependency unavailable" } } } },
     "/openapi.json": { get: { security: [], responses: { "200": { description: "OpenAPI document" } } } },
+    "/engines": { get: { responses: { "200": { description: "Available WhatsApp engines and capabilities" } } } },
     "/keys": { get: { responses: { "200": { description: "API keys" } } }, post: { requestBody: { required: true, content: { "application/json": { schema: { type: "object" } } } }, responses: { "201": { description: "Created" } } } },
     "/keys/{id}": { delete: { parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }], responses: { "204": { description: "Revoked" } } } },
     "/messages": { get: { parameters: [{ name: "accountId", in: "query", required: true, schema: { type: "string" } }, { name: "chatId", in: "query", required: true, schema: { type: "string" } }], responses: { "200": { description: "Messages" } } }, post: { requestBody: { required: true, content: { "application/json": { schema: { type: "object" } } } }, responses: { "201": { description: "Accepted" } } } },

@@ -22,6 +22,7 @@ export async function GET(request: NextRequest) {
         conversations: true,
         webhooks: true,
         realtime: true,
+        multiEngine: true,
         openapi: true,
       },
       endpoints: {
@@ -29,6 +30,7 @@ export async function GET(request: NextRequest) {
         conversations: "/api/v1/conversations",
         contacts: "/api/v1/contacts",
         events: "/api/v1/events?accountId={accountId}",
+        engines: "/api/v1/engines",
         keys: "/api/v1/keys",
         openapi: "/api/v1/openapi.json",
       },

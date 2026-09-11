@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { apiError, requireApiAuth, API_SCOPES } from "../../../../lib/api";
 import { accountFor } from "../../../../lib/api-messaging";
+import { getWhatsAppEngineUrl } from "../../../../lib/whatsapp/engines";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,9 +16,15 @@ export async function GET(request: NextRequest) {
   const account = await accountFor(auth.principal, accountId);
   if (!account) return apiError({ status: 404, code: "ACCOUNT_NOT_FOUND", message: "WhatsApp account not found or not permitted for this API key.", requestId: auth.requestId });
 
-  const workerUrl = process.env.WHATSAPP_WORKER_URL || "http://127.0.0.1:3010";
-  const managerUrl = process.env.WHATSAPP_MANAGER_URL || "";
-  const base = managerUrl ? `${managerUrl}/accounts/${encodeURIComponent(account.session_key)}` : workerUrl;
+  const engineBase = getWhatsAppEngineUrl(account.engine);
+  if (!engineBase) return apiError({ status: 503, code: "ENGINE_NOT_CONFIGURED", message: `${account.engine} realtime engine is not configured.`, requestId: auth.requestId });
+
+  const isManager = account.engine === "whatsapp-web.js" && Boolean(process.env.WHATSAPP_MANAGER_URL);
+  const base = isManager
+    ? `${process.env.WHATSAPP_MANAGER_URL}/accounts/${encodeURIComponent(account.session_key)}`
+    : account.engine === "whatsapp-web.js"
+      ? engineBase.replace(/\/$/, "")
+      : `${engineBase.replace(/\/$/, "")}/accounts/${encodeURIComponent(account.session_key)}`;
   const secret = process.env.WHATSAPP_WORKER_SECRET;
 
   try {
@@ -26,7 +33,7 @@ export async function GET(request: NextRequest) {
       headers: secret ? { Authorization: `Bearer ${secret}` } : {},
       signal: request.signal,
     });
-    if (!upstream.ok || !upstream.body) return apiError({ status: upstream.status || 503, code: "WORKER_UNAVAILABLE", message: "Realtime event stream is unavailable.", requestId: auth.requestId });
+    if (!upstream.ok || !upstream.body) return apiError({ status: upstream.status || 503, code: "ENGINE_UNAVAILABLE", message: "Realtime event stream is unavailable.", requestId: auth.requestId });
 
     const headers = new Headers({
       "content-type": "text/event-stream; charset=utf-8",
@@ -38,6 +45,6 @@ export async function GET(request: NextRequest) {
     });
     return new Response(upstream.body, { status: 200, headers });
   } catch {
-    return apiError({ status: 503, code: "WORKER_UNAVAILABLE", message: "Realtime event stream is unavailable.", requestId: auth.requestId });
+    return apiError({ status: 503, code: "ENGINE_UNAVAILABLE", message: "Realtime event stream is unavailable.", requestId: auth.requestId });
   }
 }
