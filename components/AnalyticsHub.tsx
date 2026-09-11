@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Activity, Bot, BriefcaseBusiness, CheckCircle2, Clock3, MessageSquare, Radio, RefreshCw, Send, Users, XCircle } from "lucide-react";
+import { Activity, Bot, BriefcaseBusiness, CheckCircle2, Clock3, MessageSquare, Radio, RefreshCw, Send, Users, XCircle, type LucideIcon } from "lucide-react";
 
 type Data={configured?:boolean;days:number;metrics?:any;daily?:any[];events?:any[];error?:string};
 const n=(v:any)=>Number(v||0).toLocaleString();
@@ -10,7 +10,7 @@ export default function AnalyticsHub(){
  async function load(){setLoading(true);setError("");try{const r=await fetch(`/api/analytics?days=${days}`,{cache:"no-store"});const d=await readJson(r);if(!r.ok)throw new Error(d?.error||"Analytics unavailable");setData(d)}catch(e){setError(e instanceof Error?e.message:"Analytics unavailable")}finally{setLoading(false)}}
  useEffect(()=>{void load()},[days]);
  const m=data.metrics||{}; const max=Math.max(1,...(data.daily||[]).map(x=>Number(x.total)||0));
- const cards=[
+ const cards: [string,string,string,LucideIcon][] = [
   ["Messages",n(m.messages?.total),`${n(m.messages?.inbound)} inbound · ${n(m.messages?.outbound)} outbound`,MessageSquare],
   ["Active chats",n(m.conversations?.active),`${n(m.conversations?.open)} currently open`,Activity],
   ["Contacts",n(m.contacts?.total),`+${n(m.contacts?.created)} in period`,Users],
