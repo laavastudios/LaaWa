@@ -4,23 +4,12 @@ import { NextResponse } from "next/server";
 import { verifySession } from "../../auth/login/route";
 import { decryptSecret, encryptSecret, GEMINI_COOKIE } from "@/lib/secret-store";
 
-function authorized(store: Awaited<ReturnType<typeof cookies>>) {
-  return verifySession(store.get("laawa_session")?.value);
-}
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-function mask(key: string) {
-  if (key.length <= 8) return "••••••••";
-  return `${key.slice(0, 4)}••••••••${key.slice(-4)}`;
-}
-
-async function verifyGemini(apiKey: string) {
-  const ai = new GoogleGenAI({ apiKey });
-  const result = await ai.models.generateContent({
-    model: process.env.GEMINI_MODEL || "gemini-3.8-flash",
-    contents: "Reply with exactly: LaaWa OK",
-  });
-  return Boolean(result.text?.trim());
-}
+function authorized(store: Awaited<ReturnType<typeof cookies>>) { return verifySession(store.get("laawa_session")?.value); }
+function mask(key: string) { if (key.length <= 8) return "••••••••"; return `${key.slice(0, 4)}••••••••${key.slice(-4)}`; }
+async function verifyGemini(apiKey: string) { const ai = new GoogleGenAI({ apiKey }); const result = await ai.models.generateContent({ model: process.env.GEMINI_MODEL || "gemini-2.5-flash", contents: "Reply with exactly: LaaWa OK" }); return Boolean(result.text?.trim()); }
 
 export async function GET() {
   const store = await cookies();
@@ -40,17 +29,10 @@ export async function POST(request: Request) {
   try {
     await verifyGemini(apiKey);
     const response = NextResponse.json({ ok: true, configured: true, maskedKey: mask(apiKey), message: "Gemini API key is valid and has been saved." });
-    response.cookies.set(GEMINI_COOKIE, encryptSecret(apiKey), {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 365,
-    });
+    response.cookies.set(GEMINI_COOKIE, encryptSecret(apiKey), { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 365 });
     return response;
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Gemini rejected the request.";
-    return NextResponse.json({ ok: false, error: message }, { status: 400 });
+    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "Gemini rejected the request." }, { status: 400 });
   }
 }
 
