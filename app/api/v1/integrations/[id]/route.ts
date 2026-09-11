@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
-import { apiError, apiSuccess, requireApiAuth } from "../../../../../../lib/api";
-import { decryptIntegrationConfig, getIntegration } from "../../../../../../lib/integrations";
-import { query } from "../../../../../../lib/db";
+import { apiError, apiSuccess, requireApiAuth } from "../../../../../lib/api";
+import { decryptIntegrationConfig, getIntegration } from "../../../../../lib/integrations";
+import { query } from "../../../../../lib/db";
 
 export const runtime = "nodejs";
 
