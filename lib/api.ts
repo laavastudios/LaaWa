@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifySession } from "./auth/session";
+import { SESSION_COOKIE, verifySession } from "./auth/session";
 
 export const API_VERSION = "v1" as const;
 export const API_PREFIX = `/api/${API_VERSION}` as const;
@@ -40,20 +40,14 @@ function withRequestId(headers: HeadersInit | undefined, requestId: string) {
   const result = new Headers(headers);
   result.set("x-request-id", requestId);
   result.set("x-laawa-api-version", API_VERSION);
+  result.set("Cache-Control", "no-store");
   return result;
 }
 
-export function apiSuccess<T>(
-  data: T,
-  options: ApiSuccessOptions = {},
-): NextResponse {
+export function apiSuccess<T>(data: T, options: ApiSuccessOptions = {}) {
   const requestId = options.requestId ?? crypto.randomUUID();
   return NextResponse.json(
-    {
-      ok: true,
-      data,
-      meta: { apiVersion: API_VERSION, requestId },
-    },
+    { ok: true, data, meta: { apiVersion: API_VERSION, requestId } },
     {
       status: options.status ?? 200,
       headers: withRequestId(options.headers, requestId),
@@ -61,7 +55,7 @@ export function apiSuccess<T>(
   );
 }
 
-export function apiError(options: ApiErrorOptions): NextResponse {
+export function apiError(options: ApiErrorOptions) {
   const requestId = options.requestId ?? crypto.randomUUID();
   return NextResponse.json(
     {
@@ -80,18 +74,14 @@ export function apiError(options: ApiErrorOptions): NextResponse {
   );
 }
 
-export async function authenticateApiRequest(
-  request: NextRequest,
-  requestId = getRequestId(request),
-): Promise<ApiPrincipal | null> {
+export function authenticateApiRequest(request: NextRequest): ApiPrincipal | null {
   const authorization = request.headers.get("authorization")?.trim();
 
-  // API-key authentication is intentionally resolved by the dedicated key
-  // service in the next foundation layer. Keeping the boundary here prevents
-  // individual routes from implementing authentication differently.
+  // Bearer credentials are reserved for the API-key layer. Rejecting them here
+  // avoids accidentally treating an API key as a dashboard session.
   if (authorization?.toLowerCase().startsWith("bearer ")) return null;
 
-  if (await verifySession(request.cookies)) {
+  if (verifySession(request.cookies.get(SESSION_COOKIE)?.value)) {
     return {
       type: "session",
       id: "owner-session",
@@ -99,26 +89,22 @@ export async function authenticateApiRequest(
     };
   }
 
-  void requestId;
   return null;
 }
 
-export function hasScope(
-  principal: ApiPrincipal,
-  required: ApiScope,
-): boolean {
-  return principal.scopes.includes(API_SCOPES.admin) || principal.scopes.includes(required);
+export function hasScope(principal: ApiPrincipal, required: ApiScope) {
+  return (
+    principal.scopes.includes(API_SCOPES.admin) ||
+    principal.scopes.includes(required)
+  );
 }
 
-export async function requireApiAuth(
+export function requireApiAuth(
   request: NextRequest,
   requiredScope: ApiScope = API_SCOPES.read,
-): Promise<
-  | { principal: ApiPrincipal; requestId: string }
-  | { response: NextResponse; requestId: string }
-> {
+): { principal: ApiPrincipal; requestId: string } | { response: NextResponse; requestId: string } {
   const requestId = getRequestId(request);
-  const principal = await authenticateApiRequest(request, requestId);
+  const principal = authenticateApiRequest(request);
 
   if (!principal) {
     return {
