@@ -21,6 +21,28 @@ function start(script) {
   return child;
 }
 
+function runMigration() {
+  return new Promise((resolve, reject) => {
+    if (!process.env.DATABASE_URL) {
+      console.log("[laawa] DATABASE_URL is not configured; skipping database migration.");
+      resolve();
+      return;
+    }
+
+    const child = spawn(npm, ["run", "db:migrate"], {
+      stdio: "inherit",
+      windowsHide: false,
+      shell: process.platform === "win32",
+    });
+
+    child.on("error", reject);
+    child.on("exit", (code, signal) => {
+      if (code === 0) resolve();
+      else reject(new Error(`Database migration exited with ${signal || `code ${code}`}.`));
+    });
+  });
+}
+
 function shutdown(code = 0) {
   for (const child of children) {
     if (!child.killed) {
@@ -30,8 +52,14 @@ function shutdown(code = 0) {
   setTimeout(() => process.exit(code), 50).unref();
 }
 
-start("whatsapp");
-start("dev");
+try {
+  await runMigration();
+  start("whatsapp");
+  start("dev");
+} catch (error) {
+  console.error("[laawa] Startup migration failed:", error instanceof Error ? error.message : String(error));
+  shutdown(1);
+}
 
 process.on("SIGINT", () => shutdown(0));
 process.on("SIGTERM", () => shutdown(0));
