@@ -1,5 +1,6 @@
 import type { ApiPrincipal } from "./api";
 import { query } from "./db";
+import { getWhatsAppEngine, getWhatsAppEngineUrl, normalizeWhatsAppEngine, type WhatsAppEngineId } from "./whatsapp/engines";
 
 export const workerUrl = process.env.WHATSAPP_WORKER_URL || "http://127.0.0.1:3010";
 export const managerUrl = process.env.WHATSAPP_MANAGER_URL || "http://127.0.0.1:3020";
@@ -18,15 +19,16 @@ export async function workspaceFor(principal: ApiPrincipal) {
 export async function accountFor(principal: ApiPrincipal, accountId: string) {
   const workspaceId = await workspaceFor(principal);
   if (!workspaceId || !accountId) return null;
-  const result = await query<{ id: string; session_key: string; name: string }>(
-    `SELECT id, session_key, name FROM whatsapp_accounts
+  const result = await query<{ id: string; session_key: string; name: string; engine: WhatsAppEngineId }>(
+    `SELECT id, session_key, name, engine FROM whatsapp_accounts
      WHERE id=$1 AND workspace_id=$2 LIMIT 1`,
     [accountId, workspaceId],
   );
   const account = result.rows[0];
   if (!account) return null;
   if (principal.type === "api-key" && principal.whatsappAccountIds?.length && !principal.whatsappAccountIds.includes(account.id)) return null;
-  return { ...account, workspaceId };
+  const engine = normalizeWhatsAppEngine(account.engine);
+  return { ...account, engine, engineDescriptor: getWhatsAppEngine(engine), workspaceId };
 }
 
 export async function conversationFor(principal: ApiPrincipal, conversationId: string) {
@@ -43,9 +45,18 @@ export async function conversationFor(principal: ApiPrincipal, conversationId: s
   return account ? { ...row, account } : null;
 }
 
-export async function callWorker(account: { session_key: string }, path: string, init: RequestInit = {}) {
-  const isManager = Boolean(process.env.WHATSAPP_MANAGER_URL);
-  const base = isManager ? `${managerUrl}/accounts/${encodeURIComponent(account.session_key)}` : workerUrl;
+export async function callWorker(account: { session_key: string; engine?: WhatsAppEngineId }, path: string, init: RequestInit = {}) {
+  const engine = normalizeWhatsAppEngine(account.engine);
+  const descriptor = getWhatsAppEngine(engine);
+  const engineBase = getWhatsAppEngineUrl(engine);
+  if (!engineBase || !descriptor.configured) {
+    return { status: 503, data: { error: `${descriptor.label} engine is not configured.`, code: "ENGINE_NOT_CONFIGURED", engine } };
+  }
+
+  const isManager = engine === "whatsapp-web.js" && Boolean(process.env.WHATSAPP_MANAGER_URL);
+  const base = isManager
+    ? `${managerUrl}/accounts/${encodeURIComponent(account.session_key)}`
+    : `${engineBase.replace(/\/$/, "")}/accounts/${encodeURIComponent(account.session_key)}`;
   const target = `${base}${path}`;
   try {
     const response = await fetch(target, {
@@ -56,7 +67,7 @@ export async function callWorker(account: { session_key: string }, path: string,
     const data = await response.json().catch(() => ({}));
     return { status: response.status, data };
   } catch {
-    return { status: 503, data: { error: "WhatsApp worker is not running." } };
+    return { status: 503, data: { error: `${descriptor.label} engine is unavailable.`, code: "ENGINE_UNAVAILABLE", engine } };
   }
 }
 
