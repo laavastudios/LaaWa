@@ -9,7 +9,7 @@ export async function DELETE(
   request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
-  const auth = requireApiAuth(request, "admin");
+  const auth = await requireApiAuth(request, "admin");
   if ("response" in auth) return auth.response;
 
   const { id } = await context.params;
