@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
-import { apiSuccess, getRequestId, requireApiAuth } from "../../../../../lib/api";
-import { WHATSAPP_ENGINES } from "../../../../../lib/whatsapp/engines";
+import { apiSuccess, getRequestId, requireApiAuth } from "../../../../lib/api";
+import { WHATSAPP_ENGINES } from "../../../../lib/whatsapp/engines";
 
 export const runtime = "nodejs";
 
