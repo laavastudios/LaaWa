@@ -40,7 +40,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     [id, wid],
   );
 
-  const conversations = await query(
+  const conversations = await query<{ id: string } & Record<string, unknown>>(
     `SELECT v.id,v.chat_id,v.title,v.status,v.unread_count,v.last_message_at,v.last_message_preview,v.created_at,
       COUNT(m.id)::int message_count
      FROM conversations v
@@ -52,7 +52,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     [id, wid],
   );
 
-  if (conversationId && !conversations.rows.some((item: { id: string }) => item.id === conversationId)) {
+  if (conversationId && !conversations.rows.some((item) => item.id === conversationId)) {
     return NextResponse.json({ error: "Conversation not found for this contact." }, { status: 404 });
   }
 
