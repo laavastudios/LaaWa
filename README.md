@@ -11,10 +11,15 @@ LaaWa is a premium AI business command center designed around WhatsApp customer 
 - Premium responsive dashboard shell
 - 3D motion, depth transitions and reduced-motion fallbacks
 - Server-side Gemini integration
-- PostgreSQL-backed business, platform and automation data
+- PostgreSQL-backed business, platform, automation and durable job data
+- Persistent scheduled messages with daily/weekly recurrence and IANA timezone validation
+- Worker-safe PostgreSQL job claiming with `FOR UPDATE SKIP LOCKED`
+- Retry with exponential backoff, stale-worker recovery and dead-letter/failed state
+- Idempotency keys and execution history
 - Scoped API keys with hashing, expiry support and revocation
 - HTTPS webhooks with stored signing-secret hashes
 - Audit trail and operational platform console
+- Multi-WhatsApp persistent worker manager with isolated sessions
 - Persistent WhatsApp worker kept separate from serverless hosting
 
 ## One-click web deployment
@@ -37,16 +42,16 @@ Netlify uses the repository's `netlify.toml`, `npm run build`, and `.next` outpu
 2. Copy `.env.example` to `.env.local`.
 3. Set `LAAWA_OWNER_USERNAME`, `LAAWA_OWNER_PASSWORD`, `LAAWA_SESSION_SECRET` and the required AI/database/worker variables.
 4. Run `npm install`.
-5. Run `npm run dev` for the web app, or `npm run laawa` for the web app plus the persistent WhatsApp worker.
+5. Run `npm run dev` for the web app, or `npm run laawa` for the web app plus the persistent WhatsApp manager and durable jobs worker.
 6. Open `http://localhost:3000`.
 
 For database-backed features, run `npm run db:migrate` after setting `DATABASE_URL`.
 
 ## Production architecture
 
-The Next.js dashboard and API routes are designed for serverless deployment. The persistent WhatsApp Web worker remains a separate long-running service because the WhatsApp session must survive individual HTTP requests and deployments. Connect the worker to the deployed dashboard using `WHATSAPP_WORKER_URL` and `WHATSAPP_WORKER_SECRET`.
+The Next.js dashboard and API routes are designed for serverless deployment. The persistent WhatsApp manager and durable jobs worker remain separate long-running Node services. The job worker uses PostgreSQL as its source of truth, so scheduled work survives web restarts and worker restarts. Connect the worker services to the deployed dashboard using the configured worker URL and secret.
 
-Do not expect Vercel or Netlify serverless functions to replace that persistent worker process.
+Do not expect Vercel or Netlify serverless functions to replace the persistent WhatsApp or durable-jobs processes.
 
 ## Security
 
