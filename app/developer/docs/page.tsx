@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { BookOpen, Braces, Check, Copy, ExternalLink, Radio, ShieldCheck, Sparkles } from "lucide-react";
-import "../developer.css";
+import "../../developer.css";
 import "./docs.css";
 
 const groups = [
