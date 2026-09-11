@@ -22,7 +22,9 @@ export async function GET(request: NextRequest) {
   const isManager = account.engine === "whatsapp-web.js" && Boolean(process.env.WHATSAPP_MANAGER_URL);
   const base = isManager
     ? `${process.env.WHATSAPP_MANAGER_URL}/accounts/${encodeURIComponent(account.session_key)}`
-    : `${engineBase.replace(/\/$/, "")}/accounts/${encodeURIComponent(account.session_key)}`;
+    : account.engine === "whatsapp-web.js"
+      ? engineBase.replace(/\/$/, "")
+      : `${engineBase.replace(/\/$/, "")}/accounts/${encodeURIComponent(account.session_key)}`;
   const secret = process.env.WHATSAPP_WORKER_SECRET;
 
   try {
