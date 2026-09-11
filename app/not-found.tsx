@@ -1,15 +1,6 @@
 import Link from "next/link";
+import { ArrowLeft, Compass, Sparkles } from "lucide-react";
 
 export default function NotFound() {
-  return (
-    <main className="login laawa-shell grid-bg">
-      <section className="login-card glass">
-        <div className="brand"><span>LaaWa</span></div>
-        <div className="eyebrow">404 / NOT FOUND</div>
-        <h1>That workspace route doesn’t exist.</h1>
-        <p className="muted">The page may have moved or the route is not enabled in this deployment.</p>
-        <Link className="primary" href="/">Return to command center</Link>
-      </section>
-    </main>
-  );
+  return <main className="runtime-shell"><div className="runtime-orb runtime-orb-a"/><div className="runtime-orb runtime-orb-b"/><section className="runtime-card glass"><div className="runtime-mark"><Compass size={24}/></div><div className="eyebrow"><Sparkles size={12}/> LAAWA / NAVIGATION</div><h1>This surface does not exist.</h1><p>The requested workspace route could not be found. Return to the command center and continue from a known surface.</p><Link className="primary runtime-action" href="/"><ArrowLeft size={16}/> Back to LaaWa</Link><span className="runtime-hint">404 · Route unavailable</span></section></main>;
 }
