@@ -1,0 +1,2 @@
+import AnalyticsHub from "@/components/AnalyticsHub";
+export default function AnalyticsPage(){return <main className="app laawa-shell"><section className="main analytics-page"><header className="top"><div className="title"><div className="eyebrow">LAAWA / COMMAND CENTER</div><h1>Analytics</h1><p>Live workspace intelligence and operational observability.</p></div></header><AnalyticsHub/></section></main>}
