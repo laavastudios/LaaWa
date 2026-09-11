@@ -3,7 +3,7 @@ import { query, isDatabaseConfigured } from "./db";
 type IncomingMessage = { id?: string; chatId?: string; body?: string; fromMe?: boolean; timestamp?: number };
 type Rule = { id: string; name: string; trigger_type: string; conditions: unknown; actions: unknown };
 
-function workerHeaders() { const secret = process.env.WHATSAPP_WORKER_SECRET; return secret ? { Authorization: `Bearer ${secret}` } : {}; }
+function workerHeaders(): HeadersInit { const headers: Record<string, string> = { "content-type": "application/json" }; const secret = process.env.WHATSAPP_WORKER_SECRET; if (secret) headers.Authorization = `Bearer ${secret}`; return headers; }
 function workerUrl() { return process.env.WHATSAPP_WORKER_URL || "http://127.0.0.1:3010"; }
 
 function conditionsMatch(conditions: unknown, body: string) {
@@ -69,7 +69,7 @@ export async function evaluateAutomations(message: IncomingMessage) {
       const replies = replyActions(rule.actions);
       let sent = 0;
       for (const body of replies) {
-        const response = await fetch(`${workerUrl()}/send`, { method: "POST", headers: { "content-type": "application/json", ...workerHeaders() }, body: JSON.stringify({ chatId: message.chatId, body }) });
+        const response = await fetch(`${workerUrl()}/send`, { method: "POST", headers: workerHeaders(), body: JSON.stringify({ chatId: message.chatId, body }) });
         if (!response.ok) throw new Error(`Worker rejected automation reply (${response.status}).`);
         sent += 1;
       }
