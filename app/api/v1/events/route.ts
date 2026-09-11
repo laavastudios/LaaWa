@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
       headers: secret ? { Authorization: `Bearer ${secret}` } : {},
       signal: request.signal,
     });
-    if (!upstream.ok || !upstream.body) return apiError({ status: upstream.status || 503, code: "ENGINE_UNAVAILABLE", message: "Realtime event stream is unavailable.", requestId: auth.requestId });
+    if (!upstream.ok || !upstream.body) return apiError({ status: upstream.status || 503, code: "ENGINE_UNAVAILABLE", message: `${account.engineDescriptor.label} realtime stream is unavailable.`, requestId: auth.requestId });
 
     const headers = new Headers({
       "content-type": "text/event-stream; charset=utf-8",
@@ -42,9 +42,10 @@ export async function GET(request: NextRequest) {
       "x-accel-buffering": "no",
       "x-request-id": auth.requestId,
       "x-laawa-api-version": "v1",
+      "x-laawa-engine": account.engine,
     });
     return new Response(upstream.body, { status: 200, headers });
   } catch {
-    return apiError({ status: 503, code: "ENGINE_UNAVAILABLE", message: "Realtime event stream is unavailable.", requestId: auth.requestId });
+    return apiError({ status: 503, code: "ENGINE_UNAVAILABLE", message: `${account.engineDescriptor.label} realtime stream is unavailable.`, requestId: auth.requestId });
   }
 }
