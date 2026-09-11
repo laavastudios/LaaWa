@@ -12,7 +12,7 @@ function validUuid(value: string) {
 }
 
 export async function GET(request: NextRequest) {
-  const auth = requireApiAuth(request, "admin");
+  const auth = await requireApiAuth(request, "admin");
   if ("response" in auth) return auth.response;
 
   try {
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = requireApiAuth(request, "admin");
+  const auth = await requireApiAuth(request, "admin");
   if ("response" in auth) return auth.response;
 
   const body = (await request.json().catch(() => null)) as {
