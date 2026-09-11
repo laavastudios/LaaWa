@@ -1,0 +1,1 @@
+Step 14 checks: premium recovery UI, responsive 404, reduced-motion support, production CSP hardening, browser security headers, deployment guidance, and serverless/persistent-worker separation.
