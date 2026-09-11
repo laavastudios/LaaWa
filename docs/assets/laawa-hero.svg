@@ -1,0 +1,114 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">LaaWa — AI Business Command Center</title>
+  <desc id="desc">An animated premium dark hero illustration showing a molten mountain, WhatsApp-style conversation nodes, automation paths and an AI command core.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#070812"/>
+      <stop offset="0.5" stop-color="#111329"/>
+      <stop offset="1" stop-color="#08090f"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="62%" r="55%">
+      <stop offset="0" stop-color="#ff8a3d" stop-opacity="0.38"/>
+      <stop offset="0.35" stop-color="#ff4d2e" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="lava" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffd36a"/>
+      <stop offset="0.35" stop-color="#ff7547"/>
+      <stop offset="1" stop-color="#e72e35"/>
+    </linearGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.04"/>
+    </linearGradient>
+    <filter id="blur32"><feGaussianBlur stdDeviation="32"/></filter>
+    <filter id="blur12"><feGaussianBlur stdDeviation="12"/></filter>
+    <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#000" flood-opacity="0.55"/></filter>
+    <path id="orbit" d="M 800,460 C 1060,250 1360,330 1370,500 C 1380,675 1080,745 800,610 C 520,745 220,675 230,500 C 240,330 540,250 800,460" fill="none"/>
+    <style>
+      .float { animation: float 6s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+      .float2 { animation: float 7.5s ease-in-out 1s infinite; transform-box: fill-box; transform-origin: center; }
+      .pulse { animation: pulse 2.8s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+      .spin { animation: spin 24s linear infinite; transform-origin: 800px 520px; }
+      .dash { stroke-dasharray: 8 18; animation: dash 2.6s linear infinite; }
+      .rise { animation: rise 4s ease-in-out infinite; }
+      @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-16px); } }
+      @keyframes pulse { 0%,100% { opacity:.45; transform:scale(.94); } 50% { opacity:1; transform:scale(1.04); } }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      @keyframes dash { to { stroke-dashoffset: -52; } }
+      @keyframes rise { 0%,100% { transform:translateY(8px); opacity:.35; } 50% { transform:translateY(-10px); opacity:.8; } }
+    </style>
+  </defs>
+
+  <rect width="1600" height="900" rx="36" fill="url(#bg)"/>
+  <rect x="22" y="22" width="1556" height="856" rx="28" fill="none" stroke="#ffffff" stroke-opacity="0.09"/>
+  <ellipse cx="800" cy="620" rx="620" ry="330" fill="url(#glow)" filter="url(#blur32)"/>
+
+  <g opacity="0.28">
+    <circle cx="210" cy="170" r="2" fill="#fff"/><circle cx="310" cy="270" r="1.5" fill="#fff"/><circle cx="1340" cy="170" r="2" fill="#fff"/><circle cx="1460" cy="300" r="1.5" fill="#fff"/><circle cx="1180" cy="110" r="1.5" fill="#fff"/><circle cx="480" cy="120" r="1.5" fill="#fff"/>
+  </g>
+
+  <g class="spin" opacity="0.34">
+    <use href="#orbit" stroke="#ff7048" stroke-width="1.5" class="dash"/>
+    <ellipse cx="800" cy="520" rx="510" ry="190" fill="none" stroke="#8e7cff" stroke-opacity="0.18" stroke-width="1" transform="rotate(-18 800 520)"/>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="106" y="106" width="470" height="118" rx="28" fill="url(#glass)" stroke="#ffffff" stroke-opacity="0.12"/>
+    <text x="146" y="158" fill="#ffffff" font-family="Inter,Arial,sans-serif" font-size="20" font-weight="700" letter-spacing="4">LAAWA</text>
+    <text x="146" y="193" fill="#aeb6c9" font-family="Inter,Arial,sans-serif" font-size="18">AI business operations, centered.</text>
+    <circle cx="526" cy="144" r="10" fill="#ff7547" class="pulse"/>
+  </g>
+
+  <g class="float" filter="url(#shadow)">
+    <rect x="1040" y="120" width="430" height="154" rx="30" fill="url(#glass)" stroke="#ffffff" stroke-opacity="0.12"/>
+    <circle cx="1090" cy="169" r="24" fill="#1d2c2a" stroke="#6ef0b3" stroke-opacity="0.55"/>
+    <path d="M1078 169l9 9 17-20" fill="none" stroke="#6ef0b3" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="1130" y="164" fill="#ffffff" font-family="Inter,Arial,sans-serif" font-size="19" font-weight="700">Automation completed</text>
+    <text x="1130" y="196" fill="#aeb6c9" font-family="Inter,Arial,sans-serif" font-size="15">Message → AI → action → audit</text>
+    <rect x="1070" y="228" width="350" height="5" rx="3" fill="#ffffff" fill-opacity="0.08"/>
+    <rect x="1070" y="228" width="278" height="5" rx="3" fill="url(#lava)" class="rise"/>
+  </g>
+
+  <g transform="translate(800 590)" filter="url(#shadow)">
+    <path d="M-360 180 L-210 20 L-110 80 L0 -230 L105 62 L215 12 L360 180 Z" fill="#11131c" stroke="#ffffff" stroke-opacity="0.10" stroke-width="3"/>
+    <path d="M-245 180 L-132 56 L-72 93 L0 -170 L72 82 L130 50 L245 180 Z" fill="url(#lava)" opacity="0.96"/>
+    <path d="M-68 180 L-42 92 L0 -54 L38 92 L68 180 Z" fill="#151622"/>
+    <path d="M0 -168 C-15 -120 18 -108 0 -70 C-22 -30 26 -8 0 38" fill="none" stroke="#ffe28b" stroke-width="9" stroke-linecap="round" class="pulse"/>
+    <path d="M-112 105 C-150 130 -168 155 -174 180 M110 102 C150 126 165 154 176 180" fill="none" stroke="#ff5b3d" stroke-width="7" stroke-linecap="round" opacity="0.75"/>
+  </g>
+
+  <g class="pulse" filter="url(#shadow)">
+    <circle cx="800" cy="420" r="74" fill="#0b0d16" stroke="#ff7a4d" stroke-opacity="0.8" stroke-width="2"/>
+    <circle cx="800" cy="420" r="58" fill="none" stroke="#ffbf7a" stroke-opacity="0.32"/>
+    <path d="M776 444v-47c0-13 11-24 24-24s24 11 24 24v47" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+    <path d="M770 431h60" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+    <text x="800" y="507" text-anchor="middle" fill="#ffffff" font-family="Inter,Arial,sans-serif" font-size="16" font-weight="700" letter-spacing="2">AI CORE</text>
+  </g>
+
+  <g class="float2" filter="url(#shadow)">
+    <rect x="92" y="500" width="360" height="190" rx="30" fill="url(#glass)" stroke="#ffffff" stroke-opacity="0.12"/>
+    <text x="126" y="548" fill="#ffffff" font-family="Inter,Arial,sans-serif" font-size="17" font-weight="700">Conversation intelligence</text>
+    <rect x="126" y="574" width="250" height="12" rx="6" fill="#ffffff" fill-opacity="0.08"/>
+    <rect x="126" y="574" width="196" height="12" rx="6" fill="#8e7cff"/>
+    <rect x="126" y="606" width="282" height="12" rx="6" fill="#ffffff" fill-opacity="0.08"/>
+    <rect x="126" y="638" width="210" height="12" rx="6" fill="#ffffff" fill-opacity="0.08"/>
+    <circle cx="395" cy="612" r="8" fill="#6ef0b3" class="pulse"/>
+  </g>
+
+  <g class="float" filter="url(#shadow)">
+    <rect x="1150" y="510" width="360" height="190" rx="30" fill="url(#glass)" stroke="#ffffff" stroke-opacity="0.12"/>
+    <text x="1184" y="548" fill="#ffffff" font-family="Inter,Arial,sans-serif" font-size="17" font-weight="700">Realtime operations</text>
+    <path d="M1188 640 C1230 590 1255 654 1294 610 S1360 575 1405 625 S1455 650 1474 602" fill="none" stroke="#ff8a55" stroke-width="5" stroke-linecap="round" class="dash"/>
+    <circle cx="1294" cy="610" r="7" fill="#ffcf8a" class="pulse"/>
+    <circle cx="1405" cy="625" r="7" fill="#ffcf8a" class="pulse"/>
+    <text x="1184" y="675" fill="#aeb6c9" font-family="Inter,Arial,sans-serif" font-size="14">SSE • webhooks • events • metrics</text>
+  </g>
+
+  <g opacity="0.85">
+    <circle cx="650" cy="285" r="7" fill="#8e7cff" class="pulse"/><circle cx="950" cy="295" r="7" fill="#6ef0b3" class="pulse"/>
+    <path d="M650 285 Q720 345 800 420 M950 295 Q880 350 800 420" fill="none" stroke="#ffffff" stroke-opacity="0.16" stroke-width="2" class="dash"/>
+  </g>
+
+  <text x="800" y="822" text-anchor="middle" fill="#7f889d" font-family="Inter,Arial,sans-serif" font-size="14" letter-spacing="3">MADE IN INDIA  •  DEVELOPED WITH LOVE BY LAAVABEE</text>
+</svg>
