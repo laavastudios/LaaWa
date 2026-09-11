@@ -50,7 +50,7 @@ export default function RealtimeDeveloperPage() {
           <div className="realtime-actions">
             {!connected ? <button className="developer-primary" onClick={connect} disabled={!accountId.trim()}><Wifi size={17} /> Connect stream</button> : <button className="developer-primary" onClick={disconnect}><WifiOff size={17} /> Disconnect</button>}
           </div>
-          <div className="realtime-endpoint"><code>GET /api/v1/events?accountId=&#123;accountId&#125;</code></div>
+          <div className="realtime-endpoint"><code>GET /api/v1/events?accountId={'{accountId}'}</code></div>
         </article>
 
         <article className="developer-card developer-card-list">
