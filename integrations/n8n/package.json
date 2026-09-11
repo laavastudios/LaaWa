@@ -1,0 +1,26 @@
+{
+  "name": "n8n-nodes-laawa",
+  "version": "0.1.0",
+  "description": "n8n community nodes for self-hosted LaaWa messaging automation",
+  "license": "MIT",
+  "keywords": ["n8n-community-node-package", "laawa", "whatsapp", "automation"],
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch"
+  },
+  "files": ["dist", "README.md", "LICENSE"],
+  "n8n": {
+    "n8nNodesApiVersion": 1,
+    "credentials": ["dist/credentials/LaaWaApi.credentials.js"],
+    "nodes": ["dist/nodes/LaaWa/LaaWa.node.js"]
+  },
+  "peerDependencies": {
+    "n8n-workflow": "*"
+  },
+  "devDependencies": {
+    "n8n-core": "*",
+    "n8n-workflow": "*",
+    "typescript": "^5.0.0"
+  }
+}

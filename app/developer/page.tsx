@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Check, Copy, KeyRound, Layers3, Plus, Shield, Sparkles, Trash2, X } from "lucide-react";
+import { Check, Copy, KeyRound, Layers3, Plus, Shield, Sparkles, Trash2, Workflow, X } from "lucide-react";
 import "../developer.css";
 
 type KeyRecord = {
@@ -113,7 +113,7 @@ export default function DeveloperPage() {
         <div className="developer-badge"><Shield size={15} /> Self-hosted security</div>
       </section>
 
-      <div className="developer-quicknav"><Link href="/developer/docs">API Docs</Link><Link className="active" href="/developer/engines"><Layers3 size={14} /> Engine Control Center</Link></div>
+      <div className="developer-quicknav"><Link href="/developer/docs">API Docs</Link><Link className="active" href="/developer/engines"><Layers3 size={14} /> Engine Control Center</Link><Link href="/developer/sdk">SDKs</Link><Link href="/developer/n8n"><Workflow size={14} /> n8n</Link></div>
       {error && <div className="developer-error">{error}</div>}
 
       <section className="developer-grid">
