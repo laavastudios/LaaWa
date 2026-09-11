@@ -13,7 +13,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-Strict-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Backed-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![WhatsApp](https://img.shields.io/badge/WhatsApp-Automation-25D366?logo=whatsapp&logoColor=white)](https://www.whatsapp.com/)
-[![Deploy](https://img.shields.io/badge/Deploy-Vercel%20%7C%20Netlify-111827)](#-one-click-web-deployment)
+[![License](https://img.shields.io/badge/License-MIT-8e7cff)](LICENSE)
 
 **Made in India · Developed with love by LaavaBee**
 
@@ -23,13 +23,13 @@
 
 ## What is LaaWa?
 
-LaaWa is a **self-hosted AI business command center** built around WhatsApp customer conversations and the operational systems behind them.
+LaaWa is an **open-source, self-hosted AI business command center** built around WhatsApp customer conversations and the operational systems behind them.
 
-It brings the full workflow into one premium workspace:
+It turns the business workflow into one connected surface:
 
 > **Message → understand → decide → automate → execute → observe → improve**
 
-Instead of treating WhatsApp as a standalone inbox, LaaWa treats every conversation as business data that can connect to customers, AI, automations, jobs, broadcasts, integrations and operational intelligence.
+Instead of treating WhatsApp as only an inbox, LaaWa connects conversations with contacts, Customer 360, AI, broadcasts, automation, durable jobs, integrations, notifications, realtime events and operational intelligence.
 
 ### Built for
 
@@ -40,7 +40,15 @@ Instead of treating WhatsApp as a standalone inbox, LaaWa treats every conversat
 - AI-assisted customer conversations
 - Multi-account WhatsApp operations
 - Developers building on top of LaaWa
-- Teams that want a self-hosted command center instead of a fragmented SaaS stack
+- Teams that want to own their data and runtime
+
+---
+
+## See how it works
+
+<img src="docs/assets/README-flow.svg" alt="Animated LaaWa workflow: message to context to action to observability" width="100%" />
+
+The mental model is simple: a conversation becomes durable business context, context drives decisions, automation executes the work, and observability closes the loop.
 
 ---
 
@@ -58,220 +66,166 @@ Instead of treating WhatsApp as a standalone inbox, LaaWa treats every conversat
 
 </div>
 
-The dashboard is designed as a **single operational surface** rather than a collection of disconnected admin pages, with responsive layouts, depth, motion, glass surfaces, focused hierarchy and reduced-motion fallbacks.
+The interface is designed as a **single premium operational surface** with responsive layouts, glass depth, 3D motion, focused hierarchy, micro-interactions and reduced-motion fallbacks.
 
 ---
 
 ## Core command center
 
 ### Inbox
-
-Operate customer conversations from a WhatsApp-first workspace with persistent conversation state and account-aware reply routing.
+WhatsApp-first conversation operations with persistent state and account-aware reply routing.
 
 ### Contacts
-
-Maintain business contacts and connect them to conversations and operational context.
+Business contacts connected to conversations and operational context.
 
 ### Customer 360
-
-Bring customer identity, conversation history and operational timeline into one view.
+Customer identity, conversation history and operational timeline in one view.
 
 ### Analytics
-
-Track operational activity through a dedicated analytics hub backed by PostgreSQL data.
+Operational analytics backed by PostgreSQL data.
 
 ### Intelligence
-
-Surface AI-assisted business context and conversation intelligence.
+AI-assisted business and conversation intelligence.
 
 ### AI Studio
-
-Use server-side Gemini integration for AI-powered workflows without exposing provider credentials to the browser.
+Server-side Gemini integration for AI-powered workflows without exposing provider credentials to the browser.
 
 ### More Features
-
-A command center for the broader operational surface: broadcasts, business tools, jobs, developer tooling and connected capabilities.
+A broader command surface for broadcasts, business tools, jobs and connected capabilities.
 
 ### Automation
-
-Create scheduled and event-driven business workflows with durable execution state.
+Scheduled and event-driven workflows with durable execution state.
 
 ### Visual Automation
-
-Build automation flows visually while keeping execution on the same durable backend foundation.
+Visual workflow construction on the same durable execution foundation.
 
 ### Jobs
-
-Inspect and operate persistent background work, retries and execution history.
+Persistent background work, retries and execution history.
 
 ### Business
-
-Keep business-level operational configuration and controls close to the command center.
+Business-level operational configuration and controls.
 
 ### WhatsApp
-
-Connect and operate persistent WhatsApp sessions through the dedicated worker architecture.
+Persistent WhatsApp sessions managed outside disposable serverless requests.
 
 ---
 
-## Platform — everything added beyond the core workspace
+## Platform — capabilities added around the core
 
-The **Platform** area is intentionally separate from the original command-center navigation. It contains the developer, integration and infrastructure capabilities added around the core product.
+Platform is intentionally separate from the original command-center navigation. It contains the developer, infrastructure and integration capabilities added after the core workspace.
 
-| Capability | Purpose |
+<img src="docs/assets/README-platform.svg" alt="Animated LaaWa platform capability map" width="100%" />
+
+| Capability | What it provides |
 |---|---|
-| **API Keys** | Scoped machine authentication with hashing, expiry support and revocation |
-| **Realtime API** | External Server-Sent Events surface for live application updates |
-| **OpenAPI** | Live API contract available from the developer surface |
-| **Multi-engine architecture** | Pluggable WhatsApp engine model with account-aware routing |
-| **SDKs** | TypeScript, Python and PHP SDK foundations |
-| **n8n** | Dedicated community-node integration for workflow automation |
-| **Integrations** | Chatwoot, WordPress and signed generic webhooks |
+| **API Keys** | Scoped machine authentication, hashing, expiry and revocation |
+| **Messaging API** | Programmatic message and conversation operations |
+| **Realtime API** | Authenticated Server-Sent Events for live updates |
+| **OpenAPI** | Machine-readable API contract |
+| **Multi-engine architecture** | Account-aware WhatsApp engine abstraction |
+| **SDKs** | TypeScript, Python and PHP foundations |
+| **n8n** | Community-node workflow integration |
+| **Integrations** | Chatwoot, WordPress and signed HTTPS webhooks |
 | **Notifications** | Browser push and optional SMTP delivery |
-| **Observability** | Prometheus-compatible metrics and operational snapshots |
-| **Privacy** | Data export, retention and workspace erasure controls |
-| **Plugins** | Plugin catalog, installations, permissions and signed event delivery |
+| **Observability** | Prometheus-compatible metrics and snapshots |
+| **Privacy** | Export, retention and workspace erasure controls |
+| **Plugins** | Catalog, installations, permissions and signed event delivery |
 
-The Platform page provides direct working links into these capabilities instead of hiding them behind a slide-out interface.
+Platform features have direct links in the application; they are not hidden behind a slide-out menu.
 
 ---
 
 ## Architecture
 
-```mermaid
-graph TB
-    UI[Premium Next.js Command Center]
-    API[Versioned API /api/v1]
-    DB[(PostgreSQL)]
-    AI[Gemini Server Integration]
-    WA[Persistent WhatsApp Manager]
-    JOBS[Durable Jobs Worker]
-    WEBHOOKS[Webhook Delivery Worker]
-    NOTIFY[Notification Worker]
-    EVENTS[Realtime SSE + Event Layer]
-    SDK[TS / Python / PHP SDKs]
-    N8N[n8n Community Node]
-    EXT[Chatwoot / WordPress / Webhooks]
-    PLUGINS[Plugin Runtime]
-
-    UI --> API
-    API --> DB
-    API --> AI
-    API --> WA
-    API --> EVENTS
-    API --> PLUGINS
-    SDK --> API
-    N8N --> API
-    EXT --> API
-    WA --> DB
-    JOBS --> DB
-    WEBHOOKS --> DB
-    NOTIFY --> DB
-    PLUGINS --> DB
-    EVENTS --> DB
-```
+<img src="docs/assets/README-architecture.svg" alt="Animated LaaWa production architecture showing Next.js, PostgreSQL and persistent workers" width="100%" />
 
 ### Production separation
 
-The web/API layer and persistent workers have deliberately different responsibilities:
-
 ```text
-                    ┌───────────────────────────────┐
-                    │        LaaWa Web / API         │
-                    │        Next.js App Router     │
-                    └──────────────┬────────────────┘
-                                   │
-                          ┌────────▼────────┐
-                          │   PostgreSQL    │
-                          │ Source of truth │
-                          └───┬────┬────┬───┘
-                              │    │    │
-             ┌────────────────┘    │    └────────────────┐
-             ▼                     ▼                     ▼
-      WhatsApp Manager       Durable Jobs        Webhook Delivery
-      persistent Node        persistent Node      persistent Node
-             │
-             ▼
-      WhatsApp sessions
+Browser
+   │
+   ▼
+Next.js dashboard + /api/v1
+   │
+   ▼
+PostgreSQL ─────────────── source of truth
+   │
+   ├── Multi-WhatsApp manager / WhatsApp worker
+   ├── Durable jobs worker
+   ├── Webhook delivery worker
+   └── Notification worker
 ```
 
-**Important:** Vercel and Netlify are suitable for the Next.js web/API layer, but their serverless functions are not a replacement for the persistent WhatsApp, durable-jobs or webhook-delivery processes.
+Vercel and Netlify are suitable for the **web/API layer**. Persistent WhatsApp, durable-jobs, webhook-delivery and notification processes require a long-running Node runtime.
 
 ---
 
 ## Reliability by design
 
-LaaWa is built around durable business operations rather than fire-and-forget requests.
+LaaWa is designed around durable operations rather than fire-and-forget requests.
 
 - PostgreSQL-backed durable job state
-- `FOR UPDATE SKIP LOCKED` worker-safe job claiming
+- `FOR UPDATE SKIP LOCKED` worker-safe claiming
 - Exponential retry backoff
 - Stale-worker recovery
 - Failed/dead-letter state
 - Execution history
 - Idempotency keys
 - Durable webhook delivery
-- Signed webhook payloads
+- HMAC-signed webhooks
 - Account-aware WhatsApp routing
-- Persisted WhatsApp session keys
+- Persisted WhatsApp session identity
 - Audit trail
 - Structured API errors
-- Request IDs for API tracing
-- `Cache-Control: no-store` on sensitive API responses
+- Request IDs
+- `Cache-Control: no-store` for sensitive API responses
 - Production security headers and hardened CSP
 
 ---
 
 ## API platform
 
-LaaWa exposes a versioned API surface under:
+The versioned API lives under:
 
 ```text
 /api/v1
 ```
 
-### API foundations
-
-- Session authentication
-- Scoped API keys
-- `read`, `write` and `admin` scopes
-- Request IDs
-- Consistent success/error envelopes
-- Account/workspace authorization
-- Conversation authorization
-- Realtime SSE
-- OpenAPI contract
-- External integration endpoints
-- Engine discovery
-- Metrics endpoints
-- Privacy controls
-- Plugin management
-
-### OpenAPI
-
-The live OpenAPI contract is exposed by the application at:
+Core surfaces include:
 
 ```text
+/api/v1/health
 /api/v1/openapi.json
+/api/v1/keys
+/api/v1/messages
+/api/v1/conversations
+/api/v1/contacts
+/api/v1/events
+/api/v1/engines
+/api/v1/integrations
+/api/v1/notifications
+/api/v1/metrics
+/api/v1/privacy
+/api/v1/plugins
 ```
 
-The in-product Developer Center contains the API reference and developer navigation.
+Authentication supports secure owner sessions and scoped API keys with `read`, `write` and `admin` scopes.
 
 ---
 
 ## Multi-engine WhatsApp architecture
 
-WhatsApp connectivity is treated as an engine abstraction instead of hard-coding the entire application around one transport.
+WhatsApp connectivity is represented through an engine abstraction rather than coupling the entire application to one transport.
 
-The current architecture includes the persistent `whatsapp-web.js` path while keeping account routing and engine descriptors behind a common interface.
+The current implementation includes the persistent `whatsapp-web.js` path while keeping account routing and engine descriptors behind a common interface.
 
-Each account retains its own persisted session identity. Conversation reply routing resolves the conversation's account before calling the appropriate engine, preventing a response from being accidentally sent through another WhatsApp account.
+Each WhatsApp account retains its own persisted session identity. Reply routing resolves the conversation's account before dispatching a message, preventing cross-account delivery mistakes.
 
 ---
 
 ## Developer ecosystem
 
-### SDK foundations
+### SDKs
 
 Lightweight SDK foundations are included for:
 
@@ -279,113 +233,92 @@ Lightweight SDK foundations are included for:
 - Python
 - PHP
 
-The SDKs target the public API surface and do not require the WhatsApp worker to be embedded inside the client application.
+They target the public `/api/v1` HTTP contract and do not embed the WhatsApp worker into client applications.
 
 ### n8n
 
-LaaWa includes an isolated n8n community-node package with operations for:
+An isolated n8n community-node package provides operations for:
 
 - Message send
 - Message listing
 - Engine listing
 - Health checks
 
-### External integrations
+### Integrations
 
-Supported integration foundations include:
+Integration foundations include:
 
 - Chatwoot
 - WordPress
 - Generic HTTPS webhooks
 
-Generic webhook delivery uses encrypted configuration and HMAC SHA-256 signatures through the `x-laawa-signature` header.
+Webhook delivery uses encrypted configuration and HMAC-SHA256 signatures through `x-laawa-signature`.
 
 ### Plugins
 
-The plugin architecture supports event-driven extensions around:
-
-- Messages
-- Conversations
-- Contacts
-- Broadcasts
-- WhatsApp connection state
-- Webhook failures
-
-Plugin permissions are scoped rather than giving every extension unrestricted access.
+The plugin architecture provides scoped permissions and signed event delivery around messages, conversations, contacts, broadcasts, WhatsApp connection state and webhook failures.
 
 ---
 
 ## Notifications
 
-The notification system supports:
-
 - Browser push through VAPID
-- Optional SMTP email delivery
+- Optional SMTP email
 - Notification feed
 - Notification rules
 - User preferences
-- A dedicated notification worker
+- Dedicated notification worker
 
-Credentials remain server-side and should never be committed to source control.
+Credentials remain server-side.
 
 ---
 
 ## Observability
 
-LaaWa exposes Prometheus-compatible operational metrics and snapshot endpoints for application visibility.
+Prometheus-compatible metrics and JSON snapshots expose operational signals across accounts, messages, conversations, broadcasts, jobs, webhooks, notifications and automations.
 
-The observability layer is intended to answer practical questions such as:
-
-- Is the API responding?
-- Are background jobs progressing?
-- Are webhook deliveries failing?
-- Are notifications processing?
-- How much operational work is flowing through the system?
+The goal is practical visibility: **is the API healthy, is work progressing, and where is the system failing?**
 
 ---
 
 ## Privacy and data controls
 
-Privacy controls are first-class platform capabilities rather than afterthoughts.
+Privacy is a platform capability, not an afterthought.
 
-Included foundations:
-
-- Transactional JSON data export
+- Transactional JSON export
 - Retention cleanup
-- Workspace erasure with explicit confirmation
+- Explicit workspace erasure
 - Sensitive credential exclusion from exports
 - WhatsApp session identifiers excluded from exports
-
-The goal is to make destructive operations deliberate and auditable.
+- Audit recording for destructive operations
 
 ---
 
 ## Security
 
-LaaWa includes production-oriented browser and API hardening:
+LaaWa includes:
 
-- HTTP-only owner session cookie
+- HTTP-only owner sessions
 - HMAC-signed session verification
-- Scoped API keys
 - Hashed API credentials
+- Scoped authorization
 - Encrypted integration/plugin secrets
-- HTTPS-only webhook delivery
-- HMAC webhook signatures
+- HTTPS-only external callbacks
+- HMAC webhook/plugin signatures
 - CSP hardening
 - Security headers
 - HSTS in production
 - Request correlation IDs
-- Sensitive response caching disabled
-- Structured error boundaries
-- Reduced accidental secret exposure in exports
+- Sensitive-response cache controls
+- Recovery/error boundaries
 
 ### Secret hygiene
 
-Never commit:
+Never commit real:
 
 - Gemini API keys
-- WhatsApp credentials/tokens
-- Database URLs or passwords
+- WhatsApp credentials or tokens
+- Database URLs/passwords
 - Worker secrets
 - Session secrets
 - VAPID private keys
@@ -393,13 +326,31 @@ Never commit:
 - Plugin encryption keys
 - Integration encryption keys
 
-If a secret is ever exposed in chat, screenshots, logs or source control, **rotate it before production use**.
+If a secret has ever been exposed in chat, screenshots, logs or source control, **rotate it before production use**.
+
+---
+
+## Open source & attribution
+
+LaaWa is released as open-source software under the **MIT License**.
+
+You are welcome to use it, study it, modify it, self-host it and build products or tooling with it, subject to the license in [`LICENSE`](LICENSE).
+
+### If LaaWa helps your project
+
+Please **give LaavaBee / Laava Studios credit** and link back to the original LaaWa repository when you use, fork or build substantially on top of the project. Please also **star the repository if you like LaaWa** — it helps the project get discovered and tells us the work is useful.
+
+A simple attribution is enough:
+
+> Built with [LaaWa](https://github.com/laavastudios/LaaWa) by LaavaBee / Laava Studios.
+
+The MIT license's copyright and permission notice must remain with copies or substantial portions of the software.
 
 ---
 
 ## One-click web deployment
 
-### Deploy to Vercel
+### Vercel
 
 <div align="center">
 
@@ -407,9 +358,9 @@ If a secret is ever exposed in chat, screenshots, logs or source control, **rota
 
 </div>
 
-Vercel auto-detects the Next.js application. Configure the required environment variables before using database-backed, AI or worker-connected features.
+Vercel auto-detects Next.js. Configure production environment variables before enabling database-backed, AI and worker-connected features.
 
-### Deploy to Netlify
+### Netlify
 
 <div align="center">
 
@@ -417,7 +368,7 @@ Vercel auto-detects the Next.js application. Configure the required environment 
 
 </div>
 
-The repository already includes `netlify.toml` with the Next.js build configuration and Node 20 target.
+The repository includes `netlify.toml` and targets Node 20 for consistent builds.
 
 ### Deployment model
 
@@ -440,9 +391,7 @@ Shared PostgreSQL
       └── Durable state / business data / execution history
 ```
 
-This separation is intentional and is required for reliable persistent WhatsApp sessions and background processing.
-
-For the complete deployment notes, see [`DEPLOY.md`](DEPLOY.md).
+For full deployment notes, see [`DEPLOY.md`](DEPLOY.md).
 
 ---
 
@@ -453,7 +402,7 @@ For the complete deployment notes, see [`DEPLOY.md`](DEPLOY.md).
 - Node.js 20+
 - PostgreSQL / Supabase
 - Gemini API key for AI features
-- A persistent runtime for WhatsApp and background workers
+- Persistent runtime for WhatsApp and background workers
 
 ### Install
 
@@ -467,7 +416,7 @@ npm install
 cp .env.example .env.local
 ```
 
-Configure the owner authentication values, session secret, database connection, AI credentials and worker configuration required for your deployment.
+Configure the owner/session, PostgreSQL, Gemini and worker variables required by the features you use.
 
 ### Database
 
@@ -481,19 +430,13 @@ npm run db:migrate
 npm run dev
 ```
 
-Open:
-
-```text
-http://localhost:3000
-```
+Open `http://localhost:3000`.
 
 ### Full local stack
 
 ```bash
 npm run laawa
 ```
-
-The development orchestrator starts the web application alongside the persistent services configured for local operation.
 
 ### Individual workers
 
@@ -522,13 +465,13 @@ LaaWa/
 ├── scripts/                     # Local orchestration and migrations
 ├── db/                          # PostgreSQL migrations
 ├── integrations/                # External integration packages
-├── docs/                        # Developer and implementation documentation
-│   └── assets/                  # README / documentation visuals
+├── docs/                        # Developer documentation + visuals
 ├── netlify.toml                 # Netlify deployment configuration
-├── next.config.ts               # Next.js security + runtime configuration
+├── next.config.ts               # Security + runtime configuration
 ├── SECURITY.md                  # Security policy
 ├── DEPLOY.md                    # Deployment guide
-└── README.md                    # This overview
+├── LICENSE                      # MIT license
+└── README.md                    # Project overview
 ```
 
 ---
@@ -546,13 +489,26 @@ LaaWa/
 | OpenAPI | `/api/v1/openapi.json` |
 | Platform | `/platform` |
 
-The documentation index covers the implementation journey through the current platform foundation, including API architecture, SDKs, n8n, integrations, notifications, observability, privacy, plugins and security hardening.
+The documentation index covers the implementation journey through API architecture, messaging, realtime, multi-engine support, SDKs, n8n, integrations, notifications, observability, privacy, plugins and production hardening.
+
+---
+
+## Visual documentation
+
+The README intentionally uses **custom LaaWa visuals** to explain the system instead of relying only on walls of text:
+
+- `docs/assets/laawa-hero.svg` — animated product hero
+- `docs/assets/README-flow.svg` — animated message-to-operation workflow
+- `docs/assets/README-architecture.svg` — animated production architecture
+- `docs/assets/README-platform.svg` — animated Platform capability map
+
+These are native SVG assets created for LaaWa and remain part of the repository.
 
 ---
 
 ## Design language
 
-LaaWa's interface follows a deliberate premium command-center visual system:
+LaaWa follows a premium command-center visual system:
 
 - Dark glass surfaces
 - Layered depth and 3D perspective
@@ -565,73 +521,34 @@ LaaWa's interface follows a deliberate premium command-center visual system:
 - Reduced-motion fallbacks
 - Minimal visual noise
 
-The README hero is also a native LaaWa visual: an animated SVG built specifically for this project rather than a generic stock illustration.
-
 ---
 
 ## Philosophy
 
-LaaWa is designed around a few hard rules:
+**Own the data.** Business state belongs in durable storage.
 
-**Own the data.**  
-Business state belongs in durable storage.
+**Keep WhatsApp persistent.** Messaging sessions belong in a long-running worker, not a disposable serverless request.
 
-**Keep WhatsApp persistent.**  
-Messaging sessions belong in a long-running worker, not a disposable serverless request.
+**Make automation durable.** Retries, idempotency, execution history and failure states matter.
 
-**Make automation durable.**  
-Retries, idempotency, execution history and failure states matter.
+**Expose clean APIs.** The command center should be useful to humans and machines.
 
-**Expose clean APIs.**  
-The command center should be useful to humans and machines.
+**Secure the edges.** Secrets, webhooks, plugins and integrations need explicit boundaries.
 
-**Secure the edges.**  
-Secrets, webhooks, plugins and external integrations need explicit boundaries.
+**Keep the core focused.** New developer and infrastructure capabilities belong in Platform instead of cluttering the original workspace.
 
-**Do not manufacture SaaS friction.**  
-There are no artificial credits, subscriptions, billing gates or fake usage quotas in the self-hosted application.
-
----
-
-## Current platform at a glance
-
-<div align="center">
-
-```text
-┌──────────────────────────────────────────────────────────────┐
-│                         LAAWA                                │
-│                AI BUSINESS COMMAND CENTER                   │
-├──────────────────────────────────────────────────────────────┤
-│                                                              │
-│  INBOX       CONTACTS       CUSTOMER 360       ANALYTICS     │
-│                                                              │
-│  INTELLIGENCE      AI      AUTOMATION      VISUAL FLOWS     │
-│                                                              │
-│  WHATSAPP     JOBS     BUSINESS     BROADCASTS              │
-│                                                              │
-├──────────────────────────────────────────────────────────────┤
-│  PLATFORM                                                    │
-│  API • REALTIME • ENGINES • SDKs • n8n • INTEGRATIONS       │
-│  NOTIFICATIONS • OBSERVABILITY • PRIVACY • PLUGINS          │
-└──────────────────────────────────────────────────────────────┘
-```
-
-</div>
-
----
-
-## License / project status
-
-LaaWa is a **private, self-hosted project** under active development. The repository is intentionally structured as a complete application rather than a marketing demo: web UI, API, persistence, workers, integrations, developer tooling and operational controls live together.
+**Stay genuinely open.** Self-hosting should not be artificially restricted by billing gates, subscriptions, credits or fake usage quotas.
 
 ---
 
 <div align="center">
 
-### LaaWa
+## LaaWa
 
 **One command center. One operational data layer. One place to run the business.**
 
-Made in India · Developed with love by LaavaBee
+[Star LaaWa on GitHub](https://github.com/laavastudios/LaaWa) · [Explore the code](https://github.com/laavastudios/LaaWa/tree/main)
+
+**Made in India · Developed with love by LaavaBee**
 
 </div>
