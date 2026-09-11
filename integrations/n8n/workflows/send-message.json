@@ -1,0 +1,33 @@
+{
+  "name": "LaaWa — Send Message",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "When clicking Execute",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "accountId": "YOUR_ACCOUNT_ID",
+        "chatId": "YOUR_CHAT_ID",
+        "text": "Hello from n8n → LaaWa"
+      },
+      "id": "laawa-send",
+      "name": "LaaWa — Send",
+      "type": "n8n-nodes-laawa.laawa",
+      "typeVersion": 1,
+      "position": [520, 300]
+    }
+  ],
+  "connections": {
+    "When clicking Execute": { "main": [[{ "node": "LaaWa — Send", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "laawa-send-message-v1"
+}
