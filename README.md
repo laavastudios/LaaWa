@@ -21,6 +21,22 @@ LaaWa is a premium AI business command center designed around WhatsApp customer 
 - Audit trail and operational platform console
 - Multi-WhatsApp persistent worker manager with isolated sessions
 - Persistent WhatsApp worker kept separate from serverless hosting
+- Realtime SSE API
+- Multi-engine account architecture
+- TypeScript, Python and PHP SDK foundations
+- n8n community-node integration
+- Chatwoot and WordPress integrations
+- Browser push and optional SMTP notifications
+- Prometheus-compatible metrics and observability dashboard
+- Privacy export, retention and erasure controls
+- Plugin catalog, installations, permissions and signed event delivery
+- Premium command-center UI and production browser hardening
+
+## Complete documentation
+
+The full implementation record and developer documentation index is in [`docs/README.md`](docs/README.md). It covers Steps 1–14, architecture, API surfaces, SDKs, n8n, integrations, notifications, observability, privacy, plugins, security, local operation and deployment.
+
+The in-product Developer Center is available at `/developer`, with the complete API reference at `/developer/docs` and the live OpenAPI contract at `/api/v1/openapi.json`.
 
 ## One-click web deployment
 
