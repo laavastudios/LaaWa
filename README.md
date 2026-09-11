@@ -49,7 +49,7 @@ For database-backed features, run `npm run db:migrate` after setting `DATABASE_U
 
 ## Production architecture
 
-The Next.js dashboard and API routes are designed for serverless deployment. The persistent WhatsApp manager, durable jobs worker and webhook delivery worker remain separate long-running Node services. PostgreSQL is the source of truth for durable work and webhook delivery, so queued work survives web restarts and worker restarts. Connect the worker services to the deployed dashboard using the configured worker URL and secret.
+The Next.js dashboard and API routes are designed for serverless deployment. The persistent WhatsApp manager, durable jobs worker and webhook delivery worker remain separate long-running Node services. PostgreSQL is the source of truth for durable work and webhook delivery, so queued work survives web restarts and worker restarts. The multi-account reply path uses the conversation's persisted WhatsApp session key, preventing a customer reply from being sent through the wrong account.
 
 Do not expect Vercel or Netlify serverless functions to replace the persistent WhatsApp, durable-jobs or webhook-delivery processes.
 
