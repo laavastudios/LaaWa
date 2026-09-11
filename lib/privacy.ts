@@ -1,6 +1,5 @@
 import { type PoolClient } from "pg";
 import { query, withTransaction } from "./db";
-import { workspaceFor } from "./api-messaging";
 
 export type PrivacyPolicy = {
   workspaceId: string;
@@ -48,7 +47,9 @@ async function ensurePolicy(workspaceId: string, client?: PoolClient) {
 }
 
 export async function privacyWorkspace(principalWorkspaceId?: string) {
-  return workspaceFor({ workspaceId: principalWorkspaceId } as Parameters<typeof workspaceFor>[0]);
+  if (principalWorkspaceId) return principalWorkspaceId;
+  const result = await query<{ id: string }>("SELECT id FROM workspaces ORDER BY created_at ASC LIMIT 1");
+  return result.rows[0]?.id ?? null;
 }
 
 export async function getPrivacyPolicy(workspaceId: string): Promise<PrivacyPolicy> {
@@ -78,9 +79,10 @@ export async function updatePrivacyPolicy(
   workspaceId: string,
   input: Partial<Omit<PrivacyPolicy, "workspaceId" | "updatedAt">>,
 ) {
-  const messageRetentionDays = input.messageRetentionDays ?? (await getPrivacyPolicy(workspaceId)).messageRetentionDays;
-  const notificationRetentionDays = input.notificationRetentionDays ?? (await getPrivacyPolicy(workspaceId)).notificationRetentionDays;
-  const auditLogRetentionDays = input.auditLogRetentionDays ?? (await getPrivacyPolicy(workspaceId)).auditLogRetentionDays;
+  const current = await getPrivacyPolicy(workspaceId);
+  const messageRetentionDays = input.messageRetentionDays ?? current.messageRetentionDays;
+  const notificationRetentionDays = input.notificationRetentionDays ?? current.notificationRetentionDays;
+  const auditLogRetentionDays = input.auditLogRetentionDays ?? current.auditLogRetentionDays;
   for (const [label, value] of [
     ["messageRetentionDays", messageRetentionDays],
     ["notificationRetentionDays", notificationRetentionDays],
@@ -154,7 +156,8 @@ export async function exportWorkspaceData(workspaceId: string) {
     const workspace = (await exportQuery<{ id: string; name: string; created_at: Date; updated_at: Date }>(client, "SELECT id, name, created_at, updated_at FROM workspaces WHERE id = $1", [workspaceId]))[0];
     if (!workspace) throw new Error("Workspace not found.");
 
-    const [contacts, tags, conversations, messages, mediaAssets, templates, broadcasts, broadcastRecipients, schedules, automationRules, automationRuns, webhooks, webhookDeliveries, apiKeys, auditLogs, appSettings, jobs, jobRuns, scheduledJobs, integrations, notificationPreferences, notificationRules, notifications, pushSubscriptions, privacyPolicy] = await Promise.all([
+    const [accounts, contacts, tags, conversations, messages, mediaAssets, templates, broadcasts, broadcastRecipients, schedules, automationRules, automationRuns, webhooks, webhookDeliveries, apiKeys, auditLogs, appSettings, jobs, jobRuns, scheduledJobs, integrations, notificationPreferences, notificationRules, notifications, pushSubscriptions, privacyPolicy] = await Promise.all([
+      exportQuery(client, "SELECT id, name, engine, phone_number, session_key, status, metadata, last_connected_at, created_at, updated_at FROM whatsapp_accounts WHERE workspace_id = $1 ORDER BY created_at", [workspaceId]),
       exportQuery(client, "SELECT id, whatsapp_account_id, wa_id, phone, name, push_name, avatar_url, email, notes, metadata, created_at, updated_at FROM contacts WHERE workspace_id = $1 ORDER BY created_at", [workspaceId]),
       exportQuery(client, "SELECT id, name, created_at FROM tags WHERE workspace_id = $1 ORDER BY created_at", [workspaceId]),
       exportQuery(client, "SELECT id, whatsapp_account_id, contact_id, chat_id, chat_type, title, status, unread_count, last_message_at, last_message_preview, metadata, created_at, updated_at FROM conversations WHERE workspace_id = $1 ORDER BY created_at", [workspaceId]),
@@ -186,7 +189,7 @@ export async function exportWorkspaceData(workspaceId: string) {
       exportedAt: new Date().toISOString(),
       format: "laawa-privacy-export-v1",
       workspace: { id: workspace.id, name: workspace.name, createdAt: workspace.created_at, updatedAt: workspace.updated_at },
-      accounts: await exportQuery(client, "SELECT id, name, engine, phone_number, session_key, status, metadata, last_connected_at, created_at, updated_at FROM whatsapp_accounts WHERE workspace_id = $1 ORDER BY created_at", [workspaceId]),
+      accounts,
       contacts,
       tags,
       conversations,
@@ -228,14 +231,13 @@ export async function runPrivacyRetention(workspaceId: string) {
 
     const result = { messages: 0, mediaAssets: 0, notifications: 0, auditLogs: 0 };
     if (policy.message_retention_days > 0) {
-      const deleted = await client.query<{ id: string; media_asset_id: string | null }>(
+      const deleted = await client.query(
         `DELETE FROM messages
          WHERE id IN (
            SELECT m.id FROM messages m
            JOIN conversations c ON c.id = m.conversation_id
            WHERE c.workspace_id = $1 AND m.created_at < NOW() - ($2::int * INTERVAL '1 day')
-         )
-         RETURNING id, media_asset_id`,
+         )`,
         [workspaceId, policy.message_retention_days],
       );
       result.messages = deleted.rowCount ?? 0;
