@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
-import { apiError, apiSuccess, requireApiAuth } from "../../../../../../lib/api";
-import { getNotificationPreferences, notificationWorkspace, upsertNotificationPreferences, type NotificationSeverity } from "../../../../../../lib/notifications";
+import { apiError, apiSuccess, requireApiAuth } from "../../../../../lib/api";
+import { getNotificationPreferences, notificationWorkspace, upsertNotificationPreferences, type NotificationSeverity } from "../../../../../lib/notifications";
 
 export const runtime = "nodejs";
 
