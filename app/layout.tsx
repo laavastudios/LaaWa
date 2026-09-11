@@ -6,6 +6,7 @@ import "./automation.css";
 import "./visual-automation.css";
 import "./analytics.css";
 import "./contacts.css";
+import "./intelligence.css";
 
 export const metadata: Metadata = {
   title: "LaaWa — AI Business Command Center",
