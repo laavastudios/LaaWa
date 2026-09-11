@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import DeveloperDock from "@/components/DeveloperDock";
 import SitePlatformMenu from "@/components/SitePlatformMenu";
 import "./globals.css";
 import "./premium.css";
@@ -14,6 +13,7 @@ import "./customer/customer-timeline.css";
 import "./runtime.css";
 import "./developer/premium-ui.css";
 import "./platform-menu.css";
+import "./global-motion.css";
 
 export const metadata: Metadata = {
   title: "LaaWa — AI Business Command Center",
@@ -26,7 +26,6 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body suppressHydrationWarning>
         {children}
         <SitePlatformMenu />
-        <DeveloperDock />
         <div className="brand-watermark" aria-hidden="true">Made By LaavaBee</div>
       </body>
     </html>
