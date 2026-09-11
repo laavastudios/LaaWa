@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
-import { BookOpen, Braces, Check, Copy, ExternalLink, Radio, ShieldCheck, Sparkles } from "lucide-react";
+import { BookOpen, Braces, Check, Copy, ExternalLink, LockKeyhole, Radio, ShieldCheck, Sparkles } from "lucide-react";
 import "../../developer.css";
 import "./docs.css";
 
@@ -11,6 +12,7 @@ const groups = [
   { title: "Messaging", items: [["GET", "/messages"], ["POST", "/messages"]] },
   { title: "Data", items: [["GET", "/conversations"], ["GET", "/contacts"]] },
   { title: "Realtime", items: [["GET", "/events?accountId={accountId}"]] },
+  { title: "Privacy", items: [["GET", "/privacy"], ["PATCH", "/privacy"], ["POST", "/privacy"], ["GET", "/privacy/export"]] },
 ];
 
 export default function DeveloperDocsPage() {
@@ -22,8 +24,8 @@ export default function DeveloperDocsPage() {
   return <main className="developer-shell docs-shell">
     <div className="developer-orb developer-orb-one" /><div className="developer-orb developer-orb-two" />
     <section className="developer-header docs-header">
-      <div><div className="developer-kicker"><Sparkles size={13} /> LaaWa Developer Platform</div><h1>API Documentation</h1><p>Build on a clean, versioned API with scoped authentication, messaging primitives, and realtime events.</p></div>
-      <a className="developer-badge docs-open" href="/api/v1/openapi.json" target="_blank" rel="noreferrer"><ExternalLink size={15} /> OpenAPI</a>
+      <div><div className="developer-kicker"><Sparkles size={13} /> LaaWa Developer Platform</div><h1>API Documentation</h1><p>Build on a clean, versioned API with scoped authentication, messaging primitives, realtime events, and privacy controls.</p></div>
+      <div className="docs-open-actions"><Link className="developer-badge docs-open" href="/developer/privacy"><LockKeyhole size={15} /> Privacy Center</Link><a className="developer-badge docs-open" href="/api/v1/openapi.json" target="_blank" rel="noreferrer"><ExternalLink size={15} /> OpenAPI</a></div>
     </section>
     <section className="docs-layout">
       <aside className="developer-card docs-sidebar">
