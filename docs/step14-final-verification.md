@@ -1,0 +1,1 @@
+Source-level final verification: recovery and not-found routes use premium responsive styling; security headers are hardened; production CSP omits unsafe-eval; deployment remains Vercel/Netlify compatible.
