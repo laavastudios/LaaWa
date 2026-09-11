@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import "./premium.css";
+import "./messaging.css";
 
 export const metadata: Metadata = {
   title: "LaaWa — AI Business Command Center",
