@@ -9,6 +9,7 @@ import "./contacts.css";
 import "./intelligence.css";
 import "./customer/customer.css";
 import "./customer/customer-timeline.css";
+import "./runtime.css";
 
 export const metadata: Metadata = {
   title: "LaaWa — AI Business Command Center",
