@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
-import { clientKey, rateLimit } from "../../../lib/rate-limit";
+import { clientKey, rateLimit } from "../../../../lib/rate-limit";
 
 const COOKIE = "laawa_session";
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
