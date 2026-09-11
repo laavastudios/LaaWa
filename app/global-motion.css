@@ -1,0 +1,8 @@
+/* Shared interaction layer: existing functionality stays untouched. */
+button,a,.glass,.panel,.developer-card,.metric-card,.key-item,.plugin-card,.analytics-card,.quick-action,.system-pill,.nav button{transition:transform .22s cubic-bezier(.2,.8,.2,1),box-shadow .22s ease,border-color .22s ease,background-color .22s ease,opacity .22s ease,filter .22s ease}
+button:not(:disabled):hover,.quick-action:hover,.developer-card:hover,.metric-card:hover,.analytics-card:hover,.plugin-card:hover,.key-item:hover{transform:translateY(-2px)}
+button:not(:disabled):active,.quick-action:active,.developer-card:active,.metric-card:active{transform:translateY(0) scale(.985)}
+.glass,.panel,.developer-card,.metric-card,.analytics-card,.plugin-card,.key-item{transform-style:preserve-3d;backface-visibility:hidden}
+.glass:focus-within,.panel:focus-within,.developer-card:focus-within{border-color:rgba(167,139,250,.28);box-shadow:0 24px 75px rgba(0,0,0,.28),0 0 35px rgba(139,92,246,.06)}
+input,textarea,select{transition:border-color .2s ease,box-shadow .2s ease,transform .2s ease;background-clip:padding-box}input:focus,textarea:focus,select:focus{transform:translateY(-1px)}
+@media(prefers-reduced-motion:reduce){button,a,.glass,.panel,.developer-card,.metric-card,.key-item,.plugin-card,.analytics-card,.quick-action,.system-pill,.nav button,input,textarea,select{transition:none!important}.glass:focus-within,.panel:focus-within,.developer-card:focus-within{box-shadow:none}}
