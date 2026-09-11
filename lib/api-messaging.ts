@@ -1,55 +1,58 @@
-import { engineDescriptor, normalizeEngine } from "./engines";
-import { query } from "./db";
 import type { ApiPrincipal } from "./api";
+import { query } from "./db";
+import { getWhatsAppEngine, getWhatsAppEngineUrl, normalizeWhatsAppEngine, type WhatsAppEngineId } from "./whatsapp/engines";
 
-type Account = { id: string; session_key: string; engine?: string | null; workspace_id?: string | null };
+export const workerUrl = process.env.WHATSAPP_WORKER_URL || "http://127.0.0.1:3010";
+export const managerUrl = process.env.WHATSAPP_MANAGER_URL || "http://127.0.0.1:3020";
 
-export async function accountFor(principal: ApiPrincipal, accountId?: string | null): Promise<Account | null> {
-  if (!principal.workspaceId) return null;
-  const params: unknown[] = [principal.workspaceId];
-  let clause = "workspace_id=$1";
-  if (accountId) {
-    params.push(accountId);
-    clause += ` AND id=$${params.length}`;
-  }
-  if (principal.whatsappAccountIds?.length) {
-    params.push(principal.whatsappAccountIds);
-    clause += ` AND id = ANY($${params.length}::uuid[])`;
-  }
-  const result = await query<Account>(`SELECT id,session_key,engine,workspace_id FROM whatsapp_accounts WHERE ${clause} LIMIT 1`, params);
-  return result.rows[0] ?? null;
+function workerHeaders() {
+  const secret = process.env.WHATSAPP_WORKER_SECRET;
+  return secret ? { Authorization: `Bearer ${secret}` } : {};
 }
 
 export async function workspaceFor(principal: ApiPrincipal) {
   if (principal.workspaceId) return principal.workspaceId;
   const result = await query<{ id: string }>("SELECT id FROM workspaces ORDER BY created_at ASC LIMIT 1");
-  return result.rows[0]?.id ?? null;
+  return result.rows[0]?.id || null;
+}
+
+export async function accountFor(principal: ApiPrincipal, accountId: string) {
+  const workspaceId = await workspaceFor(principal);
+  if (!workspaceId || !accountId) return null;
+  const result = await query<{ id: string; session_key: string; name: string; engine: WhatsAppEngineId }>(
+    `SELECT id, session_key, name, engine FROM whatsapp_accounts
+     WHERE id=$1 AND workspace_id=$2 LIMIT 1`,
+    [accountId, workspaceId],
+  );
+  const account = result.rows[0];
+  if (!account) return null;
+  if (principal.type === "api-key" && principal.whatsappAccountIds?.length && !principal.whatsappAccountIds.includes(account.id)) return null;
+  const engine = normalizeWhatsAppEngine(account.engine);
+  return { ...account, engine, engineDescriptor: getWhatsAppEngine(engine), workspaceId };
 }
 
 export async function conversationFor(principal: ApiPrincipal, conversationId: string) {
-  const wid = await workspaceFor(principal);
-  if (!wid) return null;
-  const result = await query<{ id: string; whatsapp_account_id: string; chat_id: string }>(
-    `SELECT id,whatsapp_account_id,chat_id FROM conversations WHERE id=$1 AND workspace_id=$2 LIMIT 1`,
-    [conversationId, wid],
+  const workspaceId = await workspaceFor(principal);
+  if (!workspaceId) return null;
+  const result = await query<{ id: string; workspace_id: string; whatsapp_account_id: string; chat_id: string; contact_id: string | null }>(
+    `SELECT id, workspace_id, whatsapp_account_id, chat_id, contact_id
+       FROM conversations WHERE id=$1 AND workspace_id=$2 LIMIT 1`,
+    [conversationId, workspaceId],
   );
-  const conversation = result.rows[0] ?? null;
-  if (!conversation) return null;
-  if (principal.whatsappAccountIds?.length && !principal.whatsappAccountIds.includes(conversation.whatsapp_account_id)) return null;
-  return conversation;
+  const row = result.rows[0];
+  if (!row) return null;
+  const account = await accountFor(principal, row.whatsapp_account_id);
+  return account ? { ...row, account } : null;
 }
 
-function workerHeaders(): HeadersInit {
-  const headers: Record<string, string> = {};
-  if (process.env.WORKER_AUTH_TOKEN) headers.Authorization = `Bearer ${process.env.WORKER_AUTH_TOKEN}`;
-  return headers;
-}
+export async function callWorker(account: { session_key: string; engine?: WhatsAppEngineId }, path: string, init: RequestInit = {}) {
+  const engine = normalizeWhatsAppEngine(account.engine);
+  const descriptor = getWhatsAppEngine(engine);
+  const engineBase = getWhatsAppEngineUrl(engine);
+  if (!engineBase || !descriptor.configured) {
+    return { status: 503, data: { error: `${descriptor.label} engine is not configured.`, code: "ENGINE_NOT_CONFIGURED", engine } };
+  }
 
-export async function callWorker(account: Account, path: string, init: RequestInit = {}) {
-  const engine = normalizeEngine(account.engine);
-  const descriptor = engineDescriptor(engine);
-  const engineBase = descriptor.baseUrl;
-  const managerUrl = process.env.WHATSAPP_MANAGER_URL?.replace(/\/$/, "") || "";
   const isManager = engine === "whatsapp-web.js" && Boolean(process.env.WHATSAPP_MANAGER_URL);
   const base = isManager
     ? `${managerUrl}/accounts/${encodeURIComponent(account.session_key)}`
@@ -68,4 +71,9 @@ export async function callWorker(account: Account, path: string, init: RequestIn
   } catch {
     return { status: 503, data: { error: `${descriptor.label} engine is unavailable.`, code: "ENGINE_UNAVAILABLE", engine } };
   }
+}
+
+export async function assertAccountAllowed(principal: ApiPrincipal, accountId: string) {
+  const account = await accountFor(principal, accountId);
+  return account;
 }
