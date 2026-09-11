@@ -1,0 +1,3 @@
+Developer quick start route: /developer/docs/guide
+OpenAPI contract: /api/v1/openapi.json
+Full API reference: docs/api-reference.md
