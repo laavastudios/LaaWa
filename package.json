@@ -8,12 +8,14 @@
     "start": "next start",
     "lint": "eslint .",
     "whatsapp": "node worker/whatsapp.mjs",
-    "laawa": "node scripts/dev-all.mjs"
+    "laawa": "node scripts/dev-all.mjs",
+    "db:migrate": "node scripts/migrate.mjs"
   },
   "dependencies": {
     "@google/genai": "latest",
     "lucide-react": "latest",
     "next": "16.3.4",
+    "pg": "latest",
     "qrcode": "latest",
     "qrcode-terminal": "latest",
     "react": "19.2.0",
@@ -22,6 +24,7 @@
   },
   "devDependencies": {
     "@types/node": "latest",
+    "@types/pg": "latest",
     "@types/qrcode": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
