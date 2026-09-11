@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifySession } from "../../auth/login/route";
+import { persistWorkerMessages } from "../../../../lib/messaging";
+
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 const workerUrl = process.env.WHATSAPP_WORKER_URL || "http://127.0.0.1:3010";
 const workerHeaders = (): Record<string, string> => {
@@ -17,7 +21,11 @@ export async function GET(request: Request) {
   if (chatId) target.searchParams.set("chatId", chatId);
   try {
     const response = await fetch(target, { cache: "no-store", headers: workerHeaders() });
-    return NextResponse.json(await response.json(), { status: response.status });
+    const data = await response.json();
+    if (response.ok && Array.isArray(data.messages)) {
+      try { await persistWorkerMessages(data.messages); } catch (error) { console.error("Messaging persistence skipped:", error instanceof Error ? error.message : String(error)); }
+    }
+    return NextResponse.json(data, { status: response.status });
   } catch {
     return NextResponse.json({ error: "WhatsApp worker is not running." }, { status: 503 });
   }
@@ -55,7 +63,15 @@ export async function POST(request: Request) {
       headers: { "content-type": "application/json", ...workerHeaders() },
       body: JSON.stringify(payload),
     });
-    return NextResponse.json(await response.json(), { status: response.status });
+    const data = await response.json();
+    if (response.ok && payload.chatId) {
+      try {
+        const statusResponse = await fetch(`${workerUrl}/messages?chatId=${encodeURIComponent(payload.chatId)}`, { cache: "no-store", headers: workerHeaders() });
+        const statusData = await statusResponse.json();
+        if (statusResponse.ok && Array.isArray(statusData.messages)) await persistWorkerMessages(statusData.messages.slice(-1));
+      } catch (error) { console.error("Sent message persistence skipped:", error instanceof Error ? error.message : String(error)); }
+    }
+    return NextResponse.json(data, { status: response.status });
   } catch {
     return NextResponse.json({ error: "WhatsApp worker is not running." }, { status: 503 });
   }
