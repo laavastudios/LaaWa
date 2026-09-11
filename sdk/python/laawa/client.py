@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Any, Optional
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
+from urllib.parse import urlencode
 import json
 
 class LaaWaApiError(RuntimeError):
@@ -39,8 +40,7 @@ class LaaWaClient:
     def health(self): return self._request("/health")
     def engines(self): return self._request("/engines")
     def messages(self, account_id: str, chat_id: str):
-        from urllib.parse import urlencode
         return self._request("/messages?" + urlencode({"accountId": account_id, "chatId": chat_id}))
-    def send_message(self, **message):
-        message.setdefault("action", "send")
-        return self._request("/messages", "POST", message)
+    def send_message(self, account_id: str, chat_id: str, text: str, **extra):
+        payload = {"accountId": account_id, "chatId": chat_id, "text": text, **extra, "action": extra.get("action", "send")}
+        return self._request("/messages", "POST", payload)
