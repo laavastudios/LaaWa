@@ -1,4 +1,10 @@
+import { existsSync } from "node:fs";
 import { spawn } from "node:child_process";
+
+if (typeof process.loadEnvFile === "function") {
+  if (existsSync(".env")) process.loadEnvFile(".env");
+  if (existsSync(".env.local")) process.loadEnvFile(".env.local");
+}
 
 const npm = process.platform === "win32" ? "npm.cmd" : "npm";
 const children = [];
@@ -29,6 +35,7 @@ function runMigration() {
       return;
     }
 
+    console.log("[laawa] Checking database migrations...");
     const child = spawn(npm, ["run", "db:migrate"], {
       stdio: "inherit",
       windowsHide: false,
@@ -54,6 +61,7 @@ function shutdown(code = 0) {
 
 try {
   await runMigration();
+  console.log("[laawa] Starting WhatsApp worker + Next.js...");
   start("whatsapp");
   start("dev");
 } catch (error) {
