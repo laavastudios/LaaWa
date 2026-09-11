@@ -40,10 +40,7 @@ CREATE TABLE IF NOT EXISTS contacts (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-
-CREATE UNIQUE INDEX IF NOT EXISTS contacts_account_wa_id_unique
-  ON contacts (whatsapp_account_id, wa_id)
-  WHERE wa_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS contacts_account_wa_id_unique ON contacts (whatsapp_account_id, wa_id) WHERE wa_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS contacts_workspace_updated_idx ON contacts (workspace_id, updated_at DESC);
 
 CREATE TABLE IF NOT EXISTS tags (
@@ -78,33 +75,7 @@ CREATE TABLE IF NOT EXISTS conversations (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (whatsapp_account_id, chat_id)
 );
-CREATE INDEX IF NOT EXISTS conversations_workspace_recent_idx
-  ON conversations (workspace_id, last_message_at DESC NULLS LAST);
-
-CREATE TABLE IF NOT EXISTS messages (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
-  whatsapp_account_id UUID REFERENCES whatsapp_accounts(id) ON DELETE SET NULL,
-  whatsapp_message_id TEXT,
-  direction TEXT NOT NULL CHECK (direction IN ('inbound', 'outbound')),
-  sender_wa_id TEXT,
-  recipient_wa_id TEXT,
-  message_type TEXT NOT NULL DEFAULT 'text' CHECK (message_type IN ('text', 'image', 'video', 'audio', 'document', 'sticker', 'location', 'contact', 'system', 'unknown')),
-  body TEXT,
-  media_asset_id UUID,
-  status TEXT NOT NULL DEFAULT 'received' CHECK (status IN ('queued', 'sent', 'delivered', 'read', 'failed', 'received')),
-  quoted_message_id UUID REFERENCES messages(id) ON DELETE SET NULL,
-  external_timestamp TIMESTAMPTZ,
-  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-CREATE UNIQUE INDEX IF NOT EXISTS messages_account_external_id_unique
-  ON messages (whatsapp_account_id, whatsapp_message_id)
-  WHERE whatsapp_message_id IS NOT NULL;
-CREATE INDEX IF NOT EXISTS messages_conversation_created_idx
-  ON messages (conversation_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS messages_workspace_created_idx
-  ON messages (whatsapp_account_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS conversations_workspace_recent_idx ON conversations (workspace_id, last_message_at DESC NULLS LAST);
 
 CREATE TABLE IF NOT EXISTS media_assets (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -120,6 +91,27 @@ CREATE TABLE IF NOT EXISTS media_assets (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (workspace_id, storage_key)
 );
+
+CREATE TABLE IF NOT EXISTS messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+  whatsapp_account_id UUID REFERENCES whatsapp_accounts(id) ON DELETE SET NULL,
+  whatsapp_message_id TEXT,
+  direction TEXT NOT NULL CHECK (direction IN ('inbound', 'outbound')),
+  sender_wa_id TEXT,
+  recipient_wa_id TEXT,
+  message_type TEXT NOT NULL DEFAULT 'text' CHECK (message_type IN ('text', 'image', 'video', 'audio', 'document', 'sticker', 'location', 'contact', 'system', 'unknown')),
+  body TEXT,
+  media_asset_id UUID REFERENCES media_assets(id) ON DELETE SET NULL,
+  status TEXT NOT NULL DEFAULT 'received' CHECK (status IN ('queued', 'sent', 'delivered', 'read', 'failed', 'received')),
+  quoted_message_id UUID REFERENCES messages(id) ON DELETE SET NULL,
+  external_timestamp TIMESTAMPTZ,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS messages_account_external_id_unique ON messages (whatsapp_account_id, whatsapp_message_id) WHERE whatsapp_message_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS messages_conversation_created_idx ON messages (conversation_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS messages_account_created_idx ON messages (whatsapp_account_id, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS templates (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -170,8 +162,7 @@ CREATE TABLE IF NOT EXISTS broadcast_recipients (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS broadcast_recipients_queue_idx
-  ON broadcast_recipients (broadcast_id, status, created_at);
+CREATE INDEX IF NOT EXISTS broadcast_recipients_queue_idx ON broadcast_recipients (broadcast_id, status, created_at);
 
 CREATE TABLE IF NOT EXISTS schedules (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -242,8 +233,7 @@ CREATE TABLE IF NOT EXISTS webhook_deliveries (
   delivered_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS webhook_deliveries_retry_idx
-  ON webhook_deliveries (status, next_attempt_at);
+CREATE INDEX IF NOT EXISTS webhook_deliveries_retry_idx ON webhook_deliveries (status, next_attempt_at);
 
 CREATE TABLE IF NOT EXISTS api_keys (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -272,8 +262,7 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS audit_logs_workspace_created_idx
-  ON audit_logs (workspace_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS audit_logs_workspace_created_idx ON audit_logs (workspace_id, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS app_settings (
   workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
