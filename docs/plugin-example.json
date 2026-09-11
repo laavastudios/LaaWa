@@ -1,0 +1,10 @@
+{
+  "slug": "crm-sync",
+  "name": "CRM Sync",
+  "version": "1.0.0",
+  "description": "Synchronize customer conversations with a CRM.",
+  "author": "Example Team",
+  "callbackUrl": "https://plugin.example.com/laawa/events",
+  "permissions": ["messages.read", "contacts.read"],
+  "events": ["message.received", "contact.updated"]
+}
