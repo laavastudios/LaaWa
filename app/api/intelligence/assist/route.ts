@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { verifySession } from "../../auth/login/route";
 import { isDatabaseConfigured, query } from "../../../../lib/db";
 import { decryptSecret, GEMINI_COOKIE } from "../../../../lib/secret-store";
+import { clientKey, rateLimit } from "../../../../lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,6 +14,8 @@ type MessageRow = { direction: "inbound" | "outbound"; body: string | null; crea
 export async function POST(request: Request) {
   const store = await cookies();
   if (!verifySession(store.get("laawa_session")?.value)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const limit = rateLimit(`intelligence-assist:${clientKey(request)}`, 20);
+  if (!limit.ok) return NextResponse.json({ error: "Too many copilot requests. Try again shortly." }, { status: 429, headers: { "Retry-After": String(Math.ceil((limit.resetAt - Date.now()) / 1000)) } });
   if (!isDatabaseConfigured()) return NextResponse.json({ error: "Database is not configured." }, { status: 503 });
 
   const body = (await request.json().catch(() => null)) as { conversationId?: string; task?: string } | null;
