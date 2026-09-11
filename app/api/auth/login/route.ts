@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { clientKey, rateLimit } from "../../../lib/rate-limit";
 
 const COOKIE = "laawa_session";
+const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
 
 function sign(value: string, secret: string) {
   return createHmac("sha256", secret).update(value).digest("hex");
@@ -22,7 +23,7 @@ export async function POST(request: Request) {
   const token = `${username}.${Date.now()}`;
   const signature = sign(token, secret);
   const response = NextResponse.json({ ok: true });
-  response.cookies.set(COOKIE, `${token}.${signature}`, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 7 });
+  response.cookies.set(COOKIE, `${token}.${signature}`, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: SESSION_MAX_AGE_SECONDS });
   return response;
 }
 
@@ -39,6 +40,8 @@ export function verifySession(cookie: string | undefined) {
   if (parts.length < 3) return false;
   const signature = parts.pop()!;
   const token = parts.join(".");
+  const timestamp = Number(token.slice(token.lastIndexOf(".") + 1));
+  if (!Number.isFinite(timestamp) || timestamp <= 0 || Date.now() - timestamp > SESSION_MAX_AGE_SECONDS * 1000 || timestamp - Date.now() > 60_000) return false;
   const expected = sign(token, secret);
   try { return timingSafeEqual(Buffer.from(signature), Buffer.from(expected)); } catch { return false; }
 }
