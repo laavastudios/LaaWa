@@ -1,0 +1,3 @@
+Developer API docs: /developer/docs/guide
+OpenAPI: /api/v1/openapi.json
+Reference: docs/api-reference.md
