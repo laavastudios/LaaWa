@@ -1,4 +1,4 @@
-import { type PoolClient } from "pg";
+import { type PoolClient, type QueryResultRow } from "pg";
 import { query, withTransaction } from "./db";
 
 export type PrivacyPolicy = {
@@ -146,7 +146,7 @@ export async function getPrivacySummary(workspaceId: string): Promise<PrivacySum
   };
 }
 
-async function exportQuery<T>(client: PoolClient, text: string, values: unknown[]) {
+async function exportQuery<T extends QueryResultRow>(client: PoolClient, text: string, values: unknown[]) {
   const result = await client.query<T>(text, values);
   return result.rows;
 }
@@ -157,7 +157,7 @@ export async function exportWorkspaceData(workspaceId: string) {
     if (!workspace) throw new Error("Workspace not found.");
 
     const [accounts, contacts, tags, conversations, messages, mediaAssets, templates, broadcasts, broadcastRecipients, schedules, automationRules, automationRuns, webhooks, webhookDeliveries, apiKeys, auditLogs, appSettings, jobs, jobRuns, scheduledJobs, integrations, notificationPreferences, notificationRules, notifications, pushSubscriptions, privacyPolicy] = await Promise.all([
-      exportQuery(client, "SELECT id, name, engine, phone_number, session_key, status, metadata, last_connected_at, created_at, updated_at FROM whatsapp_accounts WHERE workspace_id = $1 ORDER BY created_at", [workspaceId]),
+      exportQuery(client, "SELECT id, name, engine, phone_number, status, metadata, last_connected_at, created_at, updated_at FROM whatsapp_accounts WHERE workspace_id = $1 ORDER BY created_at", [workspaceId]),
       exportQuery(client, "SELECT id, whatsapp_account_id, wa_id, phone, name, push_name, avatar_url, email, notes, metadata, created_at, updated_at FROM contacts WHERE workspace_id = $1 ORDER BY created_at", [workspaceId]),
       exportQuery(client, "SELECT id, name, created_at FROM tags WHERE workspace_id = $1 ORDER BY created_at", [workspaceId]),
       exportQuery(client, "SELECT id, whatsapp_account_id, contact_id, chat_id, chat_type, title, status, unread_count, last_message_at, last_message_preview, metadata, created_at, updated_at FROM conversations WHERE workspace_id = $1 ORDER BY created_at", [workspaceId]),
