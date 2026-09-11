@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
-import { apiError, apiSuccess, requireApiAuth } from "../../../../../../lib/api";
-import { notificationWorkspace } from "../../../../../../lib/notifications";
-import { query } from "../../../../../../lib/db";
+import { apiError, apiSuccess, requireApiAuth } from "../../../../../lib/api";
+import { notificationWorkspace } from "../../../../../lib/notifications";
+import { query } from "../../../../../lib/db";
 
 export const runtime = "nodejs";
 const EVENTS = ["whatsapp.connection", "broadcast.failure", "worker.failure", "webhook.failure"] as const;
