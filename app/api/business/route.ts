@@ -9,13 +9,25 @@ export const runtime = "nodejs";
 async function auth() { const store = await cookies(); return verifySession(store.get("laawa_session")?.value); }
 async function workspaceId() { const result = await query<{ id: string }>("SELECT id FROM workspaces ORDER BY created_at ASC LIMIT 1"); return result.rows[0]?.id || null; }
 
+type LeadRow = {
+  id: string;
+  wa_id: string | null;
+  phone: string | null;
+  name: string;
+  notes: string | null;
+  stage: string;
+  value: number | string | null;
+  updated_at: string;
+  last_message: string;
+};
+
 export async function GET() {
   if (!(await auth())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!isDatabaseConfigured()) return NextResponse.json({ leads: [], configured: false });
   try {
     const workspace = await workspaceId();
     if (!workspace) return NextResponse.json({ leads: [], configured: true });
-    const result = await query(`
+    const result = await query<LeadRow>(`
       SELECT c.id, c.wa_id, c.phone, COALESCE(c.name, c.push_name, c.phone, 'Unknown') AS name,
              c.notes, COALESCE(c.metadata->>'stage', 'new') AS stage,
              COALESCE(c.metadata->>'value', '0')::numeric AS value,
