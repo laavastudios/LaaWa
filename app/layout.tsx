@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import SitePlatformMenu from "@/components/SitePlatformMenu";
 import "./globals.css";
 import "./premium.css";
 import "./messaging.css";
@@ -25,7 +24,6 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en" suppressHydrationWarning>
       <body suppressHydrationWarning>
         {children}
-        <SitePlatformMenu />
         <div className="brand-watermark" aria-hidden="true">Made By LaavaBee</div>
       </body>
     </html>
