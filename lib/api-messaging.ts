@@ -56,7 +56,9 @@ export async function callWorker(account: { session_key: string; engine?: WhatsA
   const isManager = engine === "whatsapp-web.js" && Boolean(process.env.WHATSAPP_MANAGER_URL);
   const base = isManager
     ? `${managerUrl}/accounts/${encodeURIComponent(account.session_key)}`
-    : `${engineBase.replace(/\/$/, "")}/accounts/${encodeURIComponent(account.session_key)}`;
+    : engine === "whatsapp-web.js"
+      ? engineBase.replace(/\/$/, "")
+      : `${engineBase.replace(/\/$/, "")}/accounts/${encodeURIComponent(account.session_key)}`;
   const target = `${base}${path}`;
   try {
     const response = await fetch(target, {
