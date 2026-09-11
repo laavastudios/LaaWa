@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import crypto from "node:crypto";
-import { apiError, apiSuccess, requireApiAuth } from "../../../../../../../lib/api";
-import { decryptIntegrationConfig, getIntegration } from "../../../../../../../lib/integrations";
+import { apiError, apiSuccess, requireApiAuth } from "../../../../../../lib/api";
+import { decryptIntegrationConfig, getIntegration } from "../../../../../../lib/integrations";
 
 export const runtime = "nodejs";
 
