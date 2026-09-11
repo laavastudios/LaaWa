@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
-import { apiError, apiSuccess, API_SCOPES, requireApiAuth } from "../../../../../lib/api";
-import { conversationFor } from "../../../../../lib/api-messaging";
-import { isDatabaseConfigured, query } from "../../../../../lib/db";
+import { apiError, apiSuccess, API_SCOPES, requireApiAuth } from "../../../../../../lib/api";
+import { conversationFor } from "../../../../../../lib/api-messaging";
+import { isDatabaseConfigured, query } from "../../../../../../lib/db";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
