@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 const spec = {
-  openapi:"3.0.3", info:{title:"LaaWa API",version:"1.0.0",description:"Versioned API for messaging, data, realtime, engines, integrations, and operational notifications."}, servers:[{url:"/api/v1",description:"Current deployment"}], security:[{bearerAuth:[]}], components:{securitySchemes:{bearerAuth:{type:"http",scheme:"bearer"}}},
+  openapi:"3.0.3", info:{title:"LaaWa API",version:"1.0.0",description:"Versioned API for messaging, data, realtime, engines, integrations, operational notifications, and observability."}, servers:[{url:"/api/v1",description:"Current deployment"}], security:[{bearerAuth:[]}], components:{securitySchemes:{bearerAuth:{type:"http",scheme:"bearer"}}},
   paths:{
     "/":{get:{security:[],responses:{"200":{description:"API capabilities"}}}}, "/health":{get:{security:[],responses:{"200":{description:"Healthy"},"503":{description:"Dependency unavailable"}}}}, "/openapi.json":{get:{security:[],responses:{"200":{description:"OpenAPI document"}}}},
     "/engines":{get:{responses:{"200":{description:"Available WhatsApp engines and capabilities"}}}}, "/keys":{get:{responses:{"200":{description:"API keys"}}},post:{responses:{"201":{description:"Created"}}}}, "/keys/{id}":{delete:{parameters:[{name:"id",in:"path",required:true,schema:{type:"string"}}],responses:{"200":{description:"Revoked"}}}},
@@ -13,8 +13,9 @@ const spec = {
     "/notifications":{get:{responses:{"200":{description:"Operational notification feed"}}},post:{responses:{"200":{description:"Mark notifications read or create a test alert"}}},delete:{responses:{"200":{description:"Clear read notifications"}}}},
     "/notifications/preferences":{get:{responses:{"200":{description:"Notification preferences"}}},patch:{responses:{"200":{description:"Updated notification preferences"}}}},
     "/notifications/push":{get:{responses:{"200":{description:"Browser push subscription state"}}},post:{responses:{"201":{description:"Browser push subscription saved"}}},delete:{responses:{"200":{description:"Browser push subscription removed"}}}},
-    "/notifications/config":{get:{responses:{"200":{description:"Browser push configuration"}}}},
-    "/notifications/rules":{get:{responses:{"200":{description:"Notification rules"}}},patch:{responses:{"200":{description:"Notification rule updated"}}}},
+    "/notifications/config":{get:{responses:{"200":{description:"Browser push configuration"}}}}, "/notifications/rules":{get:{responses:{"200":{description:"Notification rules"}}},patch:{responses:{"200":{description:"Notification rule updated"}}}},
+    "/metrics":{get:{description:"Authenticated Prometheus-compatible operational metrics.",responses:{"200":{description:"Prometheus text exposition format",content:{"text/plain":{schema:{type:"string"}}}},"503":{description:"Metrics unavailable"}}}},
+    "/metrics/snapshot":{get:{description:"Authenticated JSON operational metrics snapshot for dashboards.",responses:{"200":{description:"Metrics snapshot"},"503":{description:"Metrics unavailable"}}}},
   },
 };
 export async function GET(){return NextResponse.json(spec,{headers:{"cache-control":"public, max-age=300","x-laawa-api-version":"v1"}});}
