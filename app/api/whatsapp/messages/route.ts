@@ -23,7 +23,10 @@ export async function GET(request: Request) {
     if (response.ok && Array.isArray(data.messages)) {
       try {
         await persistWorkerMessages(data.messages);
-        for (const message of data.messages) await evaluateAutomations(message);
+        const now = Math.floor(Date.now() / 1000);
+        for (const message of data.messages) {
+          if (!message?.fromMe && Number.isFinite(Number(message?.timestamp)) && now - Number(message.timestamp) <= 120) await evaluateAutomations(message);
+        }
       } catch (error) { console.error("Automation evaluation skipped:", error instanceof Error ? error.message : String(error)); }
     }
     return NextResponse.json(data, { status: response.status });
