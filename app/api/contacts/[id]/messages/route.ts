@@ -22,10 +22,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const conversationId = String(body?.conversationId || "").trim();
   const message = String(body?.message || "").trim().slice(0, 4000);
   if (!conversationId || !message) return NextResponse.json({ error: "Conversation and message are required." }, { status: 400 });
-  const result = await query<{ chat_id: string }>(
-    `SELECT v.chat_id FROM conversations v JOIN contacts c ON c.id=v.contact_id WHERE v.id=$1 AND v.contact_id=$2 AND v.workspace_id=$3 LIMIT 1`,
+  const result = await query<{ chat_id: string; session_key: string }>(
+    `SELECT v.chat_id,wa.session_key
+     FROM conversations v
+     JOIN contacts c ON c.id=v.contact_id
+     LEFT JOIN whatsapp_accounts wa ON wa.id=v.whatsapp_account_id AND wa.workspace_id=v.workspace_id
+     WHERE v.id=$1 AND v.contact_id=$2 AND v.workspace_id=$3 LIMIT 1`,
     [conversationId, id, wid],
   );
   if (!result.rows[0]) return NextResponse.json({ error: "Conversation not found for this customer." }, { status: 404 });
-  return NextResponse.json({ chatId: result.rows[0].chat_id, message });
+  if (!result.rows[0].session_key) return NextResponse.json({ error: "No WhatsApp account is attached to this conversation." }, { status: 409 });
+  return NextResponse.json({ chatId: result.rows[0].chat_id, accountId: result.rows[0].session_key, message });
 }
