@@ -14,51 +14,25 @@ const workerHeaders = (): Record<string, string> => { const secret = process.env
 export async function GET(request: Request) {
   const store = await cookies();
   if (!verifySession(store.get("laawa_session")?.value)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const url = new URL(request.url);
-  const target = new URL("/messages", workerUrl);
-  const chatId = url.searchParams.get("chatId");
-  if (chatId) target.searchParams.set("chatId", chatId);
+  const url = new URL(request.url); const chatId = url.searchParams.get("chatId"); const accountId = url.searchParams.get("accountId")?.trim();
+  const target = accountId ? `${managerUrl}/accounts/${encodeURIComponent(accountId)}/messages${chatId ? `?chatId=${encodeURIComponent(chatId)}` : ""}` : (() => { const value = new URL("/messages", workerUrl); if (chatId) value.searchParams.set("chatId", chatId); return value.toString(); })();
   try {
-    const response = await fetch(target, { cache: "no-store", headers: workerHeaders() });
-    const data = await response.json();
-    if (response.ok && Array.isArray(data.messages)) {
-      try {
-        await persistWorkerMessages(data.messages);
-        const now = Math.floor(Date.now() / 1000);
-        for (const message of data.messages) {
-          if (!message?.fromMe && Number.isFinite(Number(message?.timestamp)) && now - Number(message.timestamp) <= 120) await evaluateAutomations(message);
-        }
-      } catch (error) { console.error("Automation evaluation skipped:", error instanceof Error ? error.message : String(error)); }
-    }
+    const response = await fetch(target, { cache: "no-store", headers: workerHeaders() }); const data = await response.json();
+    if (response.ok && Array.isArray(data.messages)) { try { await persistWorkerMessages(data.messages); const now = Math.floor(Date.now() / 1000); for (const message of data.messages) if (!message?.fromMe && Number.isFinite(Number(message?.timestamp)) && now - Number(message.timestamp) <= 120) await evaluateAutomations(message); } catch (error) { console.error("Message persistence skipped:", error instanceof Error ? error.message : String(error)); } }
     return NextResponse.json(data, { status: response.status });
   } catch { return NextResponse.json({ error: "WhatsApp worker is not running." }, { status: 503 }); }
 }
 
 export async function POST(request: Request) {
-  const store = await cookies();
-  if (!verifySession(store.get("laawa_session")?.value)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const store = await cookies(); if (!verifySession(store.get("laawa_session")?.value)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
-    const contentType = request.headers.get("content-type") || "";
-    let payload: { chatId?: string; body?: string; accountId?: string; media?: { data: string; mimetype: string; filename: string; kind: string; voice?: boolean } } | null = null;
-    if (contentType.includes("multipart/form-data")) {
-      const form = await request.formData();
-      const file = form.get("file");
-      if (!(file instanceof File)) return NextResponse.json({ error: "No file selected." }, { status: 400 });
-      if (file.size > 25 * 1024 * 1024) return NextResponse.json({ error: "File is larger than 25 MB." }, { status: 413 });
-      const bytes = Buffer.from(await file.arrayBuffer());
-      payload = { chatId: String(form.get("chatId") || ""), accountId: String(form.get("accountId") || "") || undefined, body: String(form.get("body") || ""), media: { data: bytes.toString("base64"), mimetype: file.type || "application/octet-stream", filename: file.name || "file", kind: String(form.get("kind") || "document"), voice: String(form.get("voice") || "false") === "true" } };
-    } else payload = await request.json().catch(() => null);
+    const contentType = request.headers.get("content-type") || ""; let payload: { chatId?: string; body?: string; accountId?: string; media?: { data: string; mimetype: string; filename: string; kind: string; voice?: boolean } } | null = null;
+    if (contentType.includes("multipart/form-data")) { const form = await request.formData(); const file = form.get("file"); if (!(file instanceof File)) return NextResponse.json({ error: "No file selected." }, { status: 400 }); if (file.size > 25 * 1024 * 1024) return NextResponse.json({ error: "File is larger than 25 MB." }, { status: 413 }); const bytes = Buffer.from(await file.arrayBuffer()); payload = { chatId: String(form.get("chatId") || ""), accountId: String(form.get("accountId") || "") || undefined, body: String(form.get("body") || ""), media: { data: bytes.toString("base64"), mimetype: file.type || "application/octet-stream", filename: file.name || "file", kind: String(form.get("kind") || "document"), voice: String(form.get("voice") || "false") === "true" } }; } else payload = await request.json().catch(() => null);
     if (!payload?.chatId?.trim() || (!payload.body?.trim() && !payload.media?.data)) return NextResponse.json({ error: "Chat and message are required." }, { status: 400 });
-    const accountId = payload.accountId?.trim();
-    const target = accountId ? `${managerUrl}/accounts/${encodeURIComponent(accountId)}/send` : `${workerUrl}/send`;
-    const response = await fetch(target, { method: "POST", headers: { "content-type": "application/json", ...workerHeaders() }, body: JSON.stringify(payload) });
-    const data = await response.json().catch(() => ({}));
-    if (response.ok && payload.chatId && !accountId) {
-      try {
-        const statusResponse = await fetch(`${workerUrl}/messages?chatId=${encodeURIComponent(payload.chatId)}`, { cache: "no-store", headers: workerHeaders() });
-        const statusData = await statusResponse.json();
-        if (statusResponse.ok && Array.isArray(statusData.messages)) await persistWorkerMessages(statusData.messages.slice(-1));
-      } catch (error) { console.error("Sent message persistence skipped:", error instanceof Error ? error.message : String(error)); }
+    const accountId = payload.accountId?.trim(); const target = accountId ? `${managerUrl}/accounts/${encodeURIComponent(accountId)}/send` : `${workerUrl}/send`;
+    const response = await fetch(target, { method: "POST", headers: { "content-type": "application/json", ...workerHeaders() }, body: JSON.stringify(payload) }); const data = await response.json().catch(() => ({}));
+    if (response.ok && payload.chatId) {
+      try { const messagesTarget = accountId ? `${managerUrl}/accounts/${encodeURIComponent(accountId)}/messages?chatId=${encodeURIComponent(payload.chatId)}` : `${workerUrl}/messages?chatId=${encodeURIComponent(payload.chatId)}`; const statusResponse = await fetch(messagesTarget, { cache: "no-store", headers: workerHeaders() }); const statusData = await statusResponse.json(); if (statusResponse.ok && Array.isArray(statusData.messages)) await persistWorkerMessages(statusData.messages.slice(-1)); } catch (error) { console.error("Sent message persistence skipped:", error instanceof Error ? error.message : String(error)); }
     }
     return NextResponse.json(data, { status: response.status });
   } catch { return NextResponse.json({ error: "WhatsApp worker is not running." }, { status: 503 }); }
