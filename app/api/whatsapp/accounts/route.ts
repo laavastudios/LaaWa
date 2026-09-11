@@ -5,10 +5,20 @@ import { verifySession } from "../../auth/login/route";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 const managerUrl = process.env.WHATSAPP_MANAGER_URL || "http://127.0.0.1:3020";
-const headers = () => process.env.WHATSAPP_WORKER_SECRET ? { Authorization: `Bearer ${process.env.WHATSAPP_WORKER_SECRET}` } : {};
+const headers = (): Record<string, string> => process.env.WHATSAPP_WORKER_SECRET
+  ? { Authorization: `Bearer ${process.env.WHATSAPP_WORKER_SECRET}` }
+  : {};
 
 async function manager(path: string, init: RequestInit = {}) {
-  return fetch(`${managerUrl}${path}`, { ...init, cache: "no-store", headers: { ...headers(), ...(init.headers || {}) } });
+  const requestHeaders: Record<string, string> = { ...headers() };
+  if (init.headers instanceof Headers) {
+    init.headers.forEach((value, key) => { requestHeaders[key] = value; });
+  } else if (Array.isArray(init.headers)) {
+    for (const [key, value] of init.headers) requestHeaders[key] = value;
+  } else if (init.headers) {
+    Object.assign(requestHeaders, init.headers);
+  }
+  return fetch(`${managerUrl}${path}`, { ...init, cache: "no-store", headers: requestHeaders });
 }
 export async function GET() {
   const store = await cookies(); if (!verifySession(store.get("laawa_session")?.value)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
