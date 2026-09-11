@@ -1,0 +1,8 @@
+{
+  "name": "laavastudios/laawa-sdk",
+  "description": "Typed client for the LaaWa v1 API",
+  "type": "library",
+  "license": "MIT",
+  "require": { "php": ">=8.1", "ext-curl": "*" },
+  "autoload": { "psr-4": { "LaaWa\\": "src/" } }
+}
