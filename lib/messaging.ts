@@ -14,17 +14,6 @@ type WorkerMessage = {
   hasMedia?: boolean;
 };
 
-type WorkerConversation = {
-  chatId?: string;
-  name?: string;
-  phone?: string;
-  avatar?: string | null;
-  lastMessage?: string;
-  timestamp?: number;
-  unread?: number;
-  isBusiness?: boolean;
-};
-
 function accountKey() {
   return process.env.WHATSAPP_ACCOUNT_SESSION_KEY || process.env.WHATSAPP_AUTH_PATH || "default";
 }
@@ -34,14 +23,9 @@ function workspaceName() {
 }
 
 async function ensureContext() {
-  const workspace = await query<{ id: string }>(
-    "SELECT id FROM workspaces ORDER BY created_at ASC LIMIT 1",
-  );
+  const workspace = await query<{ id: string }>("SELECT id FROM workspaces ORDER BY created_at ASC LIMIT 1");
   const workspaceId = workspace.rows[0]?.id || (
-    await query<{ id: string }>(
-      "INSERT INTO workspaces (name) VALUES ($1) RETURNING id",
-      [workspaceName()],
-    )
+    await query<{ id: string }>("INSERT INTO workspaces (name) VALUES ($1) RETURNING id", [workspaceName()])
   ).rows[0].id;
 
   const account = await query<{ id: string }>(
@@ -113,22 +97,4 @@ export async function persistWorkerMessages(input: WorkerMessage[]) {
       [conversationId, accountId, externalId, direction, message.fromMe ? null : chatId, message.fromMe ? chatId : null, type, body || null, status, timestamp, JSON.stringify({ name, phone, avatar: message.avatar || null, hasMedia: Boolean(message.hasMedia) })],
     );
   }
-}
-
-export async function persistWorkerConversations(input: WorkerConversation[]) {
-  if (!isDatabaseConfigured() || !input.length) return;
-  const messages = input.map((item) => ({
-    id: undefined,
-    chatId: item.chatId,
-    body: item.lastMessage,
-    timestamp: item.timestamp,
-    fromMe: true,
-    name: item.name,
-    phone: item.phone,
-    avatar: item.avatar,
-    read: true,
-    type: "text",
-    hasMedia: false,
-  }));
-  await persistWorkerMessages(messages);
 }
