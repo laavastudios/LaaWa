@@ -7,8 +7,6 @@ self.addEventListener("push", (event) => {
     tag: payload.notificationId || payload.eventType || "laawa-notification",
     renotify: true,
     data: { url: "/", ...(payload.data || {}) },
-    icon: "/icon-192.png",
-    badge: "/icon-192.png",
   };
   event.waitUntil(self.registration.showNotification(title, options));
 });
