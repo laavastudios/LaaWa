@@ -41,37 +41,29 @@ async function deliver(id: string, url: string, secret: string, eventType: strin
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), EVENT_TIMEOUT_MS);
     try {
-      const response = await fetch(url, {
-        method: "POST",
-        headers: { "content-type": "application/json", "user-agent": "LaaWa-Webhooks/1.0", "x-laawa-event": eventType, "x-laawa-delivery": id, "x-laawa-signature": `sha256=${signature}` },
-        body,
-        signal: controller.signal,
-      });
+      const response = await fetch(url, { method: "POST", headers: { "content-type": "application/json", "user-agent": "LaaWa-Webhooks/1.0", "x-laawa-event": eventType, "x-laawa-delivery": id, "x-laawa-signature": `sha256=${signature}` }, body, signal: controller.signal });
       lastStatus = response.status;
       lastBody = (await response.text()).slice(0, MAX_BODY);
-      if (response.ok) {
-        await query("UPDATE webhook_deliveries SET status='delivered', attempts=$2, response_status=$3, response_body=$4, delivered_at=NOW(), next_attempt_at=NULL WHERE id=$1", [id, attempt, response.status, lastBody]);
-        return;
-      }
-    } catch (error) {
-      lastBody = error instanceof Error ? error.message : String(error);
-    } finally { clearTimeout(timer); }
+      if (response.ok) { await query("UPDATE webhook_deliveries SET status='delivered', attempts=$2, response_status=$3, response_body=$4, delivered_at=NOW(), next_attempt_at=NULL WHERE id=$1", [id, attempt, response.status, lastBody]); return; }
+    } catch (error) { lastBody = error instanceof Error ? error.message : String(error); }
+    finally { clearTimeout(timer); }
     if (attempt < RETRIES) await new Promise((resolve) => setTimeout(resolve, 500 * 2 ** (attempt - 1)));
   }
   await query("UPDATE webhook_deliveries SET status='failed', attempts=$2, response_status=$3, response_body=$4, next_attempt_at=NOW() + INTERVAL '5 minutes' WHERE id=$1", [id, RETRIES, lastStatus, lastBody]);
 }
 
-export async function emitWebhookEvent(workspaceId: string, eventType: string, payload: Record<string, unknown>) {
+export async function emitWebhookEvent(workspaceId: string, eventType: string, payload: Record<string, unknown>, webhookId?: string) {
   if (!isDatabaseConfigured()) return;
-  const hooks = await query<{ id: string; url: string; secret_ciphertext: string | null }>("SELECT id,url,secret_ciphertext FROM webhooks WHERE workspace_id=$1 AND enabled=true AND events @> $2::jsonb", [workspaceId, JSON.stringify([eventType])]);
+  const params: unknown[] = [workspaceId, JSON.stringify([eventType])];
+  const target = webhookId ? " AND id=$3" : "";
+  if (webhookId) params.push(webhookId);
+  const hooks = await query<{ id: string; url: string; secret_ciphertext: string | null }>(`SELECT id,url,secret_ciphertext FROM webhooks WHERE workspace_id=$1 AND enabled=true AND events @> $2::jsonb${target}`, params);
   await Promise.all(hooks.rows.map(async (hook) => {
     if (!hook.secret_ciphertext) return;
     try {
       if (!allowedUrl(hook.url)) throw new Error("Webhook URL must use HTTPS.");
       const delivery = await query<{ id: string }>("INSERT INTO webhook_deliveries (webhook_id,event_type,payload,status,attempts,next_attempt_at) VALUES ($1,$2,$3,'pending',0,NOW()) RETURNING id", [hook.id, eventType, JSON.stringify(payload)]);
       await deliver(delivery.rows[0].id, hook.url, decryptWebhookSecret(hook.secret_ciphertext), eventType, payload);
-    } catch (error) {
-      console.error("Webhook delivery failed:", error instanceof Error ? error.message : String(error));
-    }
+    } catch (error) { console.error("Webhook delivery failed:", error instanceof Error ? error.message : String(error)); }
   }));
 }
