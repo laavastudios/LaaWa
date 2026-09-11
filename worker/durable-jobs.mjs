@@ -1,0 +1,110 @@
+import crypto from "node:crypto";
+import pg from "pg";
+
+const { Pool } = pg;
+const databaseUrl = process.env.DATABASE_URL;
+const managerUrl = process.env.WHATSAPP_MANAGER_URL || "http://127.0.0.1:3020";
+const secret = process.env.WHATSAPP_WORKER_SECRET || "";
+const workerId = `${process.env.HOSTNAME || "laawa"}-${process.pid}-${crypto.randomUUID().slice(0, 8)}`;
+const pollMs = Math.max(1000, Number(process.env.JOBS_POLL_MS || 3000));
+const maxBackoffMs = 15 * 60 * 1000;
+
+if (!databaseUrl) { console.error("DATABASE_URL is required for the durable jobs worker."); process.exit(1); }
+const pool = new Pool({ connectionString: databaseUrl, max: Number(process.env.JOBS_DB_POOL_MAX || 5), connectionTimeoutMillis: 10000, ssl: databaseUrl.includes("localhost") || databaseUrl.includes("127.0.0.1") ? undefined : { rejectUnauthorized: false } });
+let stopping = false;
+
+async function claimJobs() {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const result = await client.query(`
+      WITH candidates AS (
+        SELECT id FROM jobs
+        WHERE status IN ('scheduled','queued') AND run_at <= NOW()
+        ORDER BY run_at ASC, created_at ASC
+        FOR UPDATE SKIP LOCKED LIMIT 10
+      )
+      UPDATE jobs j SET status='running', locked_at=NOW(), locked_by=$1, attempts=j.attempts+1, updated_at=NOW()
+      FROM candidates c WHERE j.id=c.id
+      RETURNING j.*`, [workerId]);
+    for (const job of result.rows) await client.query("INSERT INTO job_runs (job_id, attempt, status) VALUES ($1,$2,'running')", [job.id, job.attempts]);
+    await client.query("COMMIT");
+    return result.rows;
+  } catch (error) { await client.query("ROLLBACK"); throw error; } finally { client.release(); }
+}
+
+async function execute(job) {
+  const payload = job.payload || {};
+  const accountId = String(payload.accountId || "").trim();
+  const chatId = String(payload.chatId || "").trim();
+  const body = String(payload.body || "");
+  if (!accountId || !chatId || !body) throw new Error("send_message jobs require accountId, chatId and body.");
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
+  try {
+    const response = await fetch(`${managerUrl}/accounts/${encodeURIComponent(accountId)}/send`, { method: "POST", cache: "no-store", signal: controller.signal, headers: { "content-type": "application/json", ...(secret ? { Authorization: `Bearer ${secret}` } : {}) }, body: JSON.stringify({ chatId, body }) });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(String(data.error || `WhatsApp worker returned ${response.status}.`));
+    return data;
+  } finally { clearTimeout(timer); }
+}
+
+async function finish(job, result) {
+  await pool.query("UPDATE jobs SET status='completed', locked_at=NULL, locked_by=NULL, completed_at=NOW(), updated_at=NOW(), last_error=NULL WHERE id=$1 AND locked_by=$2", [job.id, workerId]);
+  await pool.query("UPDATE job_runs SET status='completed', finished_at=NOW(), metadata=$2 WHERE job_id=$1 AND attempt=$3 AND status='running'", [job.id, JSON.stringify(result || {}), job.attempts]);
+  if (job.schedule_id) await advanceSchedule(job);
+}
+
+async function fail(job, error) {
+  const message = error instanceof Error ? error.message : String(error);
+  const terminal = Number(job.attempts) >= Number(job.max_attempts);
+  const delay = Math.min(maxBackoffMs, 1000 * 2 ** Math.max(0, Number(job.attempts) - 1));
+  await pool.query("UPDATE jobs SET status=$2, run_at=CASE WHEN $2='queued' THEN NOW()+($3 * INTERVAL '1 millisecond') ELSE run_at END, locked_at=NULL, locked_by=NULL, last_error=$4, updated_at=NOW() WHERE id=$1 AND locked_by=$5", [job.id, terminal ? "failed" : "queued", delay, message, workerId]);
+  await pool.query("UPDATE job_runs SET status='failed', finished_at=NOW(), error=$2 WHERE job_id=$1 AND attempt=$3 AND status='running'", [job.id, message, job.attempts]);
+  if (terminal && job.schedule_id) await pool.query("UPDATE scheduled_jobs SET status='failed', updated_at=NOW() WHERE id=$1", [job.schedule_id]);
+}
+
+function nextRun(runAt, recurrence) {
+  const date = new Date(runAt);
+  if (recurrence === "daily") date.setUTCDate(date.getUTCDate() + 1);
+  else if (recurrence === "weekly") date.setUTCDate(date.getUTCDate() + 7);
+  else return null;
+  return date;
+}
+
+async function advanceSchedule(job) {
+  const result = await pool.query("SELECT id, recurrence, next_run_at, status FROM scheduled_jobs WHERE id=$1", [job.schedule_id]);
+  const schedule = result.rows[0];
+  if (!schedule || schedule.recurrence === "none") { await pool.query("UPDATE scheduled_jobs SET status='completed', next_run_at=NULL, updated_at=NOW() WHERE id=$1", [job.schedule_id]); return; }
+  const next = nextRun(schedule.next_run_at || new Date(), schedule.recurrence);
+  await pool.query("UPDATE scheduled_jobs SET status='scheduled', next_run_at=$2, updated_at=NOW() WHERE id=$1", [schedule.id, next]);
+}
+
+async function materializeSchedules() {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const due = await client.query(`SELECT * FROM scheduled_jobs WHERE status='scheduled' AND next_run_at IS NOT NULL AND next_run_at <= NOW() ORDER BY next_run_at ASC FOR UPDATE SKIP LOCKED LIMIT 20`);
+    for (const schedule of due.rows) {
+      const idempotency = `schedule:${schedule.id}:${new Date(schedule.next_run_at).toISOString()}`;
+      const job = await client.query(`INSERT INTO jobs (workspace_id, whatsapp_account_id, schedule_id, type, status, payload, idempotency_key, run_at) VALUES ($1,$2,$3,'send_message','queued',$4,$5,NOW()) ON CONFLICT (workspace_id,idempotency_key) DO NOTHING RETURNING id`, [schedule.workspace_id, schedule.whatsapp_account_id, schedule.id, JSON.stringify({ accountId: schedule.metadata?.accountId || null, chatId: schedule.metadata?.chatId || null, body: schedule.body || "" }), idempotency]);
+      if (job.rows[0]) await client.query("UPDATE scheduled_jobs SET status='queued', last_job_id=$2, updated_at=NOW() WHERE id=$1", [schedule.id, job.rows[0].id]);
+    }
+    await client.query("COMMIT");
+  } catch (error) { await client.query("ROLLBACK"); console.error("Schedule materialization failed:", error.message); } finally { client.release(); }
+}
+
+async function tick() {
+  try {
+    await pool.query("UPDATE jobs SET status='queued', locked_at=NULL, locked_by=NULL, run_at=NOW(), updated_at=NOW() WHERE status='running' AND locked_at < NOW() - INTERVAL '10 minutes'");
+    await materializeSchedules();
+    const jobs = await claimJobs();
+    for (const job of jobs) { try { const result = await execute(job); await finish(job, result); } catch (error) { await fail(job, error); console.error(`[jobs] ${job.id} failed:`, error.message); } }
+  } catch (error) { console.error("Durable jobs tick failed:", error instanceof Error ? error.message : error); }
+}
+
+console.log(`[laawa] Durable jobs worker ${workerId} started; polling every ${pollMs}ms.`);
+const timer = setInterval(() => { void tick(); }, pollMs);
+void tick();
+async function shutdown() { if (stopping) return; stopping = true; clearInterval(timer); await pool.end(); process.exit(0); }
+process.on("SIGINT", shutdown); process.on("SIGTERM", shutdown);
