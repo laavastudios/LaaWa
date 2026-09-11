@@ -74,9 +74,23 @@ const server = http.createServer(async (req, res) => {
   if (req.method === "GET" && url.pathname === "/events") { res.writeHead(200, { "content-type": "text/event-stream; charset=utf-8", "cache-control": "no-cache, no-store, must-revalidate", connection: "keep-alive", "x-accel-buffering": "no" }); res.write(`event: snapshot\ndata: ${JSON.stringify({ accounts: await snapshot() })}\n\n`); subscribers.add(res); const timer = setInterval(async () => { try { res.write(`event: snapshot\ndata: ${JSON.stringify({ accounts: await snapshot() })}\n\n`); } catch {} }, 5000); req.on("close", () => { clearInterval(timer); subscribers.delete(res); }); return; }
   if (req.method === "GET" && url.pathname === "/accounts") return json(res, 200, { accounts: await snapshot(), limit: MAX_ACCOUNTS });
   if (req.method === "POST" && url.pathname === "/accounts") { if (accounts.length >= MAX_ACCOUNTS) return json(res, 409, { error: `Maximum of ${MAX_ACCOUNTS} WhatsApp accounts reached.` }); let body = ""; for await (const chunk of req) body += chunk; let payload; try { payload = JSON.parse(body || "{}"); } catch { return json(res, 400, { error: "Invalid JSON." }); } const id = cleanId(payload.id || payload.name); if (!id) return json(res, 400, { error: "Account id is required." }); if (accountFor(id)) return json(res, 409, { error: "That account id already exists." }); const usedPorts = new Set(accounts.map((account) => Number(account.port))); let port = BASE_PORT + 1; while (usedPorts.has(port)) port += 1; const account = { id, name: String(payload.name || id).trim().slice(0, 80) || id, port, authPath: path.resolve(`./.whatsapp-session-${id}`) }; accounts.push(account); saveAccounts(); start(account); return json(res, 201, { account: { ...account, status: "starting", connected: false, process: "running" } }); }
-  const match = url.pathname.match(/^\/accounts\/([^/]+)(?:\/(restart|stop|status|send))?$/); const account = match ? accountFor(cleanId(match[1])) : null;
+  const match = url.pathname.match(/^\/accounts\/([^/]+)(?:\/(restart|stop|status|send|messages))?$/); const account = match ? accountFor(cleanId(match[1])) : null;
   if (req.method === "DELETE" && match) { if (!account) return json(res, 404, { error: "WhatsApp account not found." }); if (account.id === "default") return json(res, 400, { error: "The primary account cannot be removed." }); stop(account); accounts = accounts.filter((item) => item.id !== account.id); saveAccounts(); return json(res, 200, { ok: true }); }
-  if (match) { if (!account) return json(res, 404, { error: "WhatsApp account not found." }); const action = match[2] || "status"; if (action === "restart") { stop(account); restartState.delete(account.id); start(account); return json(res, 202, { ok: true, id: account.id, status: "starting" }); } if (action === "stop") { stop(account); return json(res, 200, { ok: true, id: account.id, status: "stopped" }); } if (action === "send") { let body = ""; for await (const chunk of req) body += chunk; let payload; try { payload = JSON.parse(body || "{}"); } catch { return json(res, 400, { error: "Invalid JSON." }); } const response = await workerRequest(account, "/send", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }); return json(res, response.status, response.data); } const response = await workerRequest(account, "/status"); return json(res, 200, response.data); }
+  if (match) {
+    if (!account) return json(res, 404, { error: "WhatsApp account not found." });
+    const action = match[2] || "status";
+    if (action === "restart") { stop(account); restartState.delete(account.id); start(account); return json(res, 202, { ok: true, id: account.id, status: "starting" }); }
+    if (action === "stop") { stop(account); return json(res, 200, { ok: true, id: account.id, status: "stopped" }); }
+    if (action === "send" || action === "messages") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const query = action === "messages" ? `?${url.searchParams.toString()}` : "";
+      let payload = null;
+      if (action === "send") { try { payload = JSON.parse(body || "{}"); } catch { return json(res, 400, { error: "Invalid JSON." }); } }
+      const response = await workerRequest(account, action === "send" ? "/send" : `/messages${query}`, action === "send" ? { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) } : {});
+      return json(res, response.status, response.data);
+    }
+    const response = await workerRequest(account, "/status"); return json(res, 200, response.data);
+  }
   return json(res, 404, { error: "Not found." });
 });
 server.listen(PORT, HOST, () => console.log(`[laawa] Multi-WhatsApp manager listening on http://${HOST}:${PORT} (${accounts.length} account${accounts.length === 1 ? "" : "s"})`));
