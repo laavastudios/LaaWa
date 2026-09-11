@@ -6,8 +6,8 @@ export const runtime = "nodejs";
 
 export async function GET(request: NextRequest) {
   const requestId = getRequestId(request);
-  const principal = await requireApiAuth(request, "read");
-  if (!principal.ok) return principal.response;
+  const auth = await requireApiAuth(request, "read");
+  if ("response" in auth) return auth.response;
 
   return apiSuccess(
     {
