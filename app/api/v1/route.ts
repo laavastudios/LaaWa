@@ -10,6 +10,8 @@ export async function GET(request: NextRequest) {
       name: "LaaWa API",
       version: "v1",
       status: "ready",
+      documentation: "/developer/docs",
+      openapi: "/api/v1/openapi.json",
       capabilities: {
         authentication: "session + api-key",
         apiKeys: true,
@@ -20,6 +22,7 @@ export async function GET(request: NextRequest) {
         conversations: true,
         webhooks: true,
         realtime: true,
+        openapi: true,
       },
       endpoints: {
         messages: "/api/v1/messages",
@@ -27,6 +30,7 @@ export async function GET(request: NextRequest) {
         contacts: "/api/v1/contacts",
         events: "/api/v1/events?accountId={accountId}",
         keys: "/api/v1/keys",
+        openapi: "/api/v1/openapi.json",
       },
     },
     { requestId },
