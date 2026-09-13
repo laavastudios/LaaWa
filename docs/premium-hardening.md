@@ -1,5 +1,7 @@
-# Premium hardening
+# UI and security notes
 
-Step 14 strengthens production presentation and deployment resilience without changing the application data model. Recovery and not-found states share the command center's glass, depth, ambient motion, responsive layout, and reduced-motion behavior. Browser response headers are tightened for production, including a production-only removal of `unsafe-eval` from CSP.
+The recovery and 404 pages use the same UI components as the main dashboard and support reduced-motion preferences.
 
-The web/API layer remains suitable for Vercel or Netlify. Persistent WhatsApp-related processes remain separate by design.
+Production responses use stricter browser security headers. The production CSP also removes `unsafe-eval`; development keeps the setting required by the development runtime.
+
+The Next.js web/API layer can run on Vercel or Netlify. WhatsApp and other long-running workers must stay on a persistent Node.js runtime.
