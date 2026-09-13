@@ -1,10 +1,9 @@
-# Premium hardening checklist
+# UI and security checklist
 
-- Premium runtime recovery surface with animated 3D depth
-- Premium 404 navigation surface
-- Responsive mobile layout
-- Reduced-motion support
-- Production CSP excludes unsafe-eval
-- COOP/CORP and browser security headers
-- Vercel/Netlify-compatible web/API deployment
-- Persistent WhatsApp services kept outside serverless runtime
+- Recovery page works and respects reduced-motion settings
+- 404 page works on desktop and mobile
+- Responsive layout
+- Production CSP excludes `unsafe-eval`
+- COOP/CORP and other browser security headers are set
+- Web/API deployment works on Vercel or Netlify
+- WhatsApp and other persistent workers run outside the serverless web runtime
